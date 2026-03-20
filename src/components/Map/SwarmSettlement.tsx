@@ -73,7 +73,7 @@ export default function SwarmSettlement({ swarm, heights, segments, allianceColo
 
       {/* Label — only at Level 1 or if selected */}
       {(zoomLevel === 1 || isSelected) && !dimmed && (
-        <Html position={[0, beaconH + 0.4, 0]} center distanceFactor={40} style={{ pointerEvents: "none", userSelect: "none" }}>
+        <Html position={[0, beaconH + 0.4, 0]} center distanceFactor={40} zIndexRange={[1, 0]} style={{ pointerEvents: "none", userSelect: "none" }}>
           <div className="flex flex-col items-center gap-px">
             <div className="text-[9px] font-bold tracking-widest uppercase whitespace-nowrap" style={{ fontFamily: "Orbitron, sans-serif", color, textShadow: `0 0 8px ${color}` }}>
               {swarm.name}

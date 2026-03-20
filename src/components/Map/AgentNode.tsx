@@ -63,7 +63,7 @@ export default function AgentNode({ agent, index, total, center, color }: {
       )}
 
       {zoomLevel >= 2 && (
-        <Html position={[0, 0.3, 0]} center distanceFactor={8} style={{ pointerEvents: "none", userSelect: "none" }}>
+        <Html position={[0, 0.3, 0]} center distanceFactor={8} zIndexRange={[1, 0]} style={{ pointerEvents: "none", userSelect: "none" }}>
           <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
             <div style={{
               fontFamily: "Orbitron, sans-serif", fontSize: 7, fontWeight: 700,

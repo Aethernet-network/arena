@@ -232,11 +232,11 @@ function MapView({ swarms, alliances, lobbyAgents, zoomLevel, selectedSwarm, sel
       {/* Map overlays */}
       {showMap && (
         <>
-          <div style={{ position: "absolute", top: 0, left: 0, right: 0, zIndex: 10 }}>
+          <div style={{ position: "absolute", top: 0, left: 0, right: 0, zIndex: 50 }}>
             <TopBar />
             <NetworkStats />
           </div>
-          <div style={{ position: "absolute", top: 88, left: 0, zIndex: 10 }}><Breadcrumb swarms={swarms} /></div>
+          <div style={{ position: "absolute", top: 88, left: 0, zIndex: 50 }}><Breadcrumb swarms={swarms} /></div>
           <SwarmSidebar swarms={swarms} alliances={alliances} />
           <MapControls />
           <div style={{ transition: "opacity 0.5s", opacity: zoomLevel === 1 && !showLobby ? 1 : 0, pointerEvents: zoomLevel === 1 && !showLobby ? "auto" : "none" }}>

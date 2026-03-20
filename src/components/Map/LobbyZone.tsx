@@ -78,7 +78,7 @@ export default function LobbyZone({ lobbyAgents, heights, segments }: {
 
       {/* Label */}
       {zoomLevel === 1 && (
-        <Html position={[cx, cy + 2.5, cz]} center distanceFactor={40} style={{ pointerEvents: "none", userSelect: "none" }}>
+        <Html position={[cx, cy + 2.5, cz]} center distanceFactor={40} zIndexRange={[1, 0]} style={{ pointerEvents: "none", userSelect: "none" }}>
           <div className="flex flex-col items-center gap-px">
             <div className="text-[9px] font-bold tracking-[0.2em] uppercase whitespace-nowrap" style={{ fontFamily: "Orbitron, sans-serif", color: "#7B61FF", textShadow: "0 0 8px rgba(123,97,255,0.5)" }}>
               THE LOBBY
