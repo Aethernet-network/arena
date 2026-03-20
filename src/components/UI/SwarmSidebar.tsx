@@ -8,7 +8,7 @@ const tierColors: Record<string, string> = {
   Diamond: "#00D4FF", Gold: "#FFB800", Silver: "#8899AA", Bronze: "#CD7F32", Unranked: "#555",
 };
 
-export default function SwarmSidebar({ swarms, alliances }: { swarms: Swarm[]; alliances: Alliance[] }) {
+export default function SwarmSidebar({ swarms, alliances: _alliances }: { swarms: Swarm[]; alliances: Alliance[] }) {
   const { flyToSwarm, selectedSwarm, setShowLobby } = useArena();
   const sorted = [...swarms].sort((a, b) => b.reputation - a.reputation);
 

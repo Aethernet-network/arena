@@ -58,7 +58,7 @@ export default function AllianceConnection({ from, to, color, heights, segments 
       <Line points={curvePoints} color={color} lineWidth={0.8} transparent opacity={0.12} dashed dashSize={0.4} gapSize={0.3} />
       <points ref={particleRef}>
         <bufferGeometry>
-          <bufferAttribute attach="attributes-position" count={count} array={positions} itemSize={3} />
+          <bufferAttribute attach="attributes-position" args={[positions, 3]} />
         </bufferGeometry>
         <pointsMaterial color={color} size={0.08} transparent opacity={0.5} sizeAttenuation depthWrite={false} />
       </points>

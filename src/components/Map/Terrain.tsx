@@ -1,5 +1,4 @@
-import { useRef, useMemo } from "react";
-import { useFrame } from "@react-three/fiber";
+import { useMemo } from "react";
 import * as THREE from "three";
 
 const CONTOUR_LEVELS = 6;

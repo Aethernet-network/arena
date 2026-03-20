@@ -10,7 +10,7 @@ import { LOBBY_POSITION, LOBBY_RADIUS } from "../../data/mockData";
 export default function LobbyZone({ lobbyAgents, heights, segments }: {
   lobbyAgents: LobbyAgent[]; heights: number[]; segments: number;
 }) {
-  const { showLobby, setShowLobby, zoomLevel } = useArena();
+  const { setShowLobby, zoomLevel } = useArena();
   const ringRef = useRef<THREE.Mesh>(null!);
   const particlesRef = useRef<THREE.Points>(null!);
 
@@ -71,7 +71,7 @@ export default function LobbyZone({ lobbyAgents, heights, segments }: {
       {/* Lobby particles — busier than normal terrain to suggest activity */}
       <points ref={particlesRef}>
         <bufferGeometry>
-          <bufferAttribute attach="attributes-position" count={particlePositions.length / 3} array={particlePositions} itemSize={3} />
+          <bufferAttribute attach="attributes-position" args={[particlePositions, 3]} />
         </bufferGeometry>
         <pointsMaterial color="#7B61FF" size={0.08} transparent opacity={0.35} sizeAttenuation depthWrite={false} />
       </points>

@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState, useEffect, useRef } from "react";
-import { Canvas, useThree } from "@react-three/fiber";
+import { Canvas } from "@react-three/fiber";
 import { OrbitControls } from "@react-three/drei";
 import { EffectComposer, Bloom, Vignette } from "@react-three/postprocessing";
 import * as THREE from "three";

@@ -9,7 +9,6 @@ export default function MapParticles({ terrainSize }: { terrainSize: number }) {
   const { positions, velocities } = useMemo(() => {
     const pos = new Float32Array(count * 3);
     const vel = new Float32Array(count * 3);
-    const half = terrainSize / 2;
     for (let i = 0; i < count; i++) {
       pos[i * 3] = (Math.random() - 0.5) * terrainSize;
       pos[i * 3 + 1] = Math.random() * 4 + 0.3;
@@ -40,7 +39,7 @@ export default function MapParticles({ terrainSize }: { terrainSize: number }) {
   return (
     <points ref={ref}>
       <bufferGeometry>
-        <bufferAttribute attach="attributes-position" count={count} array={positions} itemSize={3} />
+        <bufferAttribute attach="attributes-position" args={[positions, 3]} />
       </bufferGeometry>
       <pointsMaterial color="#00D4FF" size={0.05} transparent opacity={0.2} sizeAttenuation depthWrite={false} />
     </points>
