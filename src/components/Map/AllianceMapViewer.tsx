@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState, useEffect, useRef } from "react";
-import { Canvas, useThree, invalidate } from "@react-three/fiber";
+import { Canvas, useThree } from "@react-three/fiber";
 import { OrbitControls } from "@react-three/drei";
 import { EffectComposer, Bloom, Vignette } from "@react-three/postprocessing";
 import * as THREE from "three";
@@ -59,6 +59,21 @@ function getSwarmColor(s: Swarm): string {
   return s.alliances.length > 0 ? (colors[s.alliances[0]] ?? tierColors[s.tier]) : tierColors[s.tier];
 }
 
+// Forces Three.js to render immediately on Canvas mount.
+// Multiple delayed renders to catch late scene initialization.
+function ForceInitialRender() {
+  const { gl, scene, camera, invalidate } = useThree();
+  useEffect(() => {
+    gl.render(scene, camera);
+    invalidate();
+    const t1 = setTimeout(() => { gl.render(scene, camera); invalidate(); }, 50);
+    const t2 = setTimeout(() => { gl.render(scene, camera); invalidate(); }, 200);
+    const t3 = setTimeout(() => { gl.render(scene, camera); invalidate(); }, 500);
+    return () => { clearTimeout(t1); clearTimeout(t2); clearTimeout(t3); };
+  }, [gl, scene, camera, invalidate]);
+  return null;
+}
+
 function SceneContent({ swarms, alliances, lobbyAgents, zoomLevel, selectedSwarm, selectedAgent, showLobby, flyTarget, onFlyComplete, controlsRef }: {
   swarms: Swarm[]; alliances: Alliance[]; lobbyAgents: any[]; zoomLevel: ZoomLevel; selectedSwarm: string | null; selectedAgent: string | null; showLobby: boolean;
   flyTarget: { position: THREE.Vector3; lookAt: THREE.Vector3 } | null; onFlyComplete: () => void; controlsRef: React.MutableRefObject<OrbitControlsImpl | null>;
@@ -105,7 +120,6 @@ function SceneContent({ swarms, alliances, lobbyAgents, zoomLevel, selectedSwarm
         controlsRef={controlsRef}
       />
 
-      {/* Single OrbitControls — CameraController lerps its .target, no fighting */}
       <OrbitControls
         ref={controlsRef as any}
         enableDamping dampingFactor={0.08}
@@ -114,21 +128,11 @@ function SceneContent({ swarms, alliances, lobbyAgents, zoomLevel, selectedSwarm
       />
 
       <EffectComposer>
-        <Bloom luminanceThreshold={0.15} luminanceSmoothing={0.9} intensity={1.0} mipmapBlur />
+        <Bloom luminanceThreshold={0.6} luminanceSmoothing={0.9} intensity={0.8} mipmapBlur />
         <Vignette eskil={false} offset={0.25} darkness={0.7} />
       </EffectComposer>
     </>
   );
-}
-
-function ForceRender() {
-  const { gl, scene, camera } = useThree();
-  useEffect(() => {
-    gl.render(scene, camera);
-    gl.setAnimationLoop(() => { gl.render(scene, camera); });
-    return () => { gl.setAnimationLoop(null); };
-  }, [gl, scene, camera]);
-  return null;
 }
 
 function MapPreloader() {
@@ -164,11 +168,93 @@ function MapPreloader() {
   );
 }
 
+// The Map component — rendered only when activePage === "map"
+// Uses key={canvasKey} to force remount the Canvas on first render
+function MapView({ swarms, alliances, lobbyAgents, zoomLevel, selectedSwarm, selectedAgent, showLobby, flyTarget, onFlyComplete, showMap }: {
+  swarms: Swarm[]; alliances: Alliance[]; lobbyAgents: any[];
+  zoomLevel: ZoomLevel; selectedSwarm: string | null; selectedAgent: string | null;
+  showLobby: boolean; flyTarget: { position: THREE.Vector3; lookAt: THREE.Vector3 } | null;
+  onFlyComplete: () => void; showMap: boolean;
+}) {
+  const controlsRef = useRef<OrbitControlsImpl | null>(null);
+  const [canvasKey, setCanvasKey] = useState(0);
+
+  // Force Canvas remount after first animation frame to ensure WebGL context initializes
+  useEffect(() => {
+    requestAnimationFrame(() => {
+      setCanvasKey(1);
+    });
+  }, []);
+
+  // Kick the renderer with resize events when this component mounts
+  useEffect(() => {
+    const kick = () => window.dispatchEvent(new Event("resize"));
+    kick();
+    const t1 = setTimeout(kick, 100);
+    const t2 = setTimeout(kick, 300);
+    const t3 = setTimeout(kick, 1000);
+    return () => { clearTimeout(t1); clearTimeout(t2); clearTimeout(t3); };
+  }, []);
+
+  return (
+    <div style={{ position: "relative", width: "100vw", height: "100vh", overflow: "hidden", background: "#0A0E1A" }}>
+      {/* Preloader overlay */}
+      {!showMap && (
+        <div style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0, zIndex: 9999, backgroundColor: "#0A0E1A" }}>
+          <MapPreloader />
+        </div>
+      )}
+
+      {/* Canvas — always in DOM, hidden with opacity during preloader */}
+      <div style={{
+        position: "absolute", top: 0, left: 0, width: "100%", height: "100%",
+        opacity: showMap ? 1 : 0, transition: "opacity 0.8s ease",
+      }}>
+        <Canvas
+          key={canvasKey}
+          frameloop="always"
+          camera={{ position: [0, 50, 40], fov: 50, near: 0.1, far: 300 }}
+          gl={{ antialias: true, alpha: false, powerPreference: "high-performance" }}
+          style={{ width: "100%", height: "100%", background: "#0A0E1A" }}
+        >
+          <ForceInitialRender />
+          <color attach="background" args={["#0A0E1A"]} />
+          <fog attach="fog" args={["#0A0E1A", 50, 120]} />
+          {swarms.length > 0 && (
+            <SceneContent swarms={swarms} alliances={alliances} lobbyAgents={lobbyAgents}
+              zoomLevel={zoomLevel} selectedSwarm={selectedSwarm} selectedAgent={selectedAgent} showLobby={showLobby}
+              flyTarget={flyTarget} onFlyComplete={onFlyComplete} controlsRef={controlsRef}
+            />
+          )}
+        </Canvas>
+      </div>
+
+      {/* Map overlays */}
+      {showMap && (
+        <>
+          <div style={{ position: "absolute", top: 0, left: 0, right: 0, zIndex: 10 }}>
+            <TopBar />
+            <NetworkStats />
+          </div>
+          <div style={{ position: "absolute", top: 88, left: 0, zIndex: 10 }}><Breadcrumb swarms={swarms} /></div>
+          <SwarmSidebar swarms={swarms} alliances={alliances} />
+          <MapControls />
+          <div style={{ transition: "opacity 0.5s", opacity: zoomLevel === 1 && !showLobby ? 1 : 0, pointerEvents: zoomLevel === 1 && !showLobby ? "auto" : "none" }}>
+            <LiveFeed />
+          </div>
+          <SwarmPanel swarms={swarms} alliances={alliances} />
+          <AgentPanel swarms={swarms} />
+          <LobbyPanel />
+        </>
+      )}
+    </div>
+  );
+}
+
 export default function AllianceMapViewer() {
   const swarms = useSwarms();
   const alliances = useAlliances();
   const lobbyAgents = useLobbyAgents();
-  const controlsRef = useRef<OrbitControlsImpl | null>(null);
 
   const [zoomLevel, setZoomLevel] = useState<ZoomLevel>(1);
   const [selectedSwarm, setSelectedSwarm] = useState<string | null>(null);
@@ -177,21 +263,14 @@ export default function AllianceMapViewer() {
   const [activePage, setActivePage] = useState<Page>("landing");
   const [flyTarget, setFlyTarget] = useState<{ position: THREE.Vector3; lookAt: THREE.Vector3 } | null>(null);
 
-  // Preloader: simple timer — show for 1.5s then reveal map. Cannot deadlock.
+  // Preloader timer — starts when map page becomes active
   const [showMap, setShowMap] = useState(false);
   useEffect(() => {
-    const t = setTimeout(() => setShowMap(true), 1500);
-    return () => clearTimeout(t);
-  }, []);
-
-  // Force Three.js to render on mount — fixes "blank until tab switch" bug
-  useEffect(() => {
-    const t = setTimeout(() => {
-      invalidate();
-      window.dispatchEvent(new Event("resize"));
-    }, 100);
-    return () => clearTimeout(t);
-  }, []);
+    if (activePage === "map" && !showMap) {
+      const t = setTimeout(() => setShowMap(true), 1500);
+      return () => clearTimeout(t);
+    }
+  }, [activePage, showMap]);
 
   const selectSwarm = useCallback((id: string | null) => {
     setSelectedSwarm(id);
@@ -244,74 +323,22 @@ export default function AllianceMapViewer() {
     selectSwarm, selectAgent, setShowLobby, goBack, recenter, flyToSwarm, setActivePage,
   }), [zoomLevel, selectedSwarm, selectedAgent, showLobby, activePage, selectSwarm, selectAgent, goBack, recenter, flyToSwarm]);
 
-  // Non-map pages use a scrollable layout; map page uses full viewport with absolute overlays
   const isMapPage = activePage === "map";
   const isLanding = activePage === "landing";
   const isContentPage = !isMapPage && !isLanding;
 
   return (
     <ArenaContext.Provider value={arenaState}>
-      {/* Landing page — full standalone */}
       {isLanding && <LandingPage />}
 
-      {/* Map page — full viewport with preloader + 3D canvas */}
       {isMapPage && (
-        <div style={{ position: "relative", width: "100vw", height: "100vh", overflow: "hidden", background: "#0A0E1A" }}>
-          {/* Preloader overlay — zIndex 9999 guarantees above Canvas */}
-          {!showMap && (
-            <div style={{
-              position: "absolute", top: 0, left: 0, right: 0, bottom: 0,
-              zIndex: 9999, backgroundColor: "#0A0E1A",
-            }}>
-              <MapPreloader />
-            </div>
-          )}
-
-          {/* Canvas — always mounted, fades in when ready */}
-          <div style={{
-            position: "absolute", top: 0, left: 0, width: "100%", height: "100%",
-            opacity: showMap ? 1 : 0,
-            transition: "opacity 0.8s ease",
-          }}>
-            <Canvas camera={{ position: [0, 50, 40], fov: 50, near: 0.1, far: 300 }}
-              frameloop="always"
-              gl={{ antialias: true, alpha: false, powerPreference: "high-performance" }}
-              style={{ width: "100%", height: "100%", background: "#0A0E1A" }}
-            >
-              <ForceRender />
-              <color attach="background" args={["#0A0E1A"]} />
-              <fog attach="fog" args={["#0A0E1A", 50, 120]} />
-              {swarms.length > 0 && (
-                <SceneContent swarms={swarms} alliances={alliances} lobbyAgents={lobbyAgents}
-                  zoomLevel={zoomLevel} selectedSwarm={selectedSwarm} selectedAgent={selectedAgent} showLobby={showLobby}
-                  flyTarget={flyTarget} onFlyComplete={onFlyComplete} controlsRef={controlsRef}
-                />
-              )}
-            </Canvas>
-          </div>
-
-          {/* Map overlays — absolutely positioned, only visible when map is ready */}
-          {showMap && (
-            <>
-              <div style={{ position: "absolute", top: 0, left: 0, right: 0, zIndex: 10 }}>
-                <TopBar />
-                <NetworkStats />
-              </div>
-              <div style={{ position: "absolute", top: 88, left: 0, zIndex: 10 }}><Breadcrumb swarms={swarms} /></div>
-              <SwarmSidebar swarms={swarms} alliances={alliances} />
-              <MapControls />
-              <div style={{ transition: "opacity 0.5s", opacity: zoomLevel === 1 && !showLobby ? 1 : 0, pointerEvents: zoomLevel === 1 && !showLobby ? "auto" : "none" }}>
-                <LiveFeed />
-              </div>
-              <SwarmPanel swarms={swarms} alliances={alliances} />
-              <AgentPanel swarms={swarms} />
-              <LobbyPanel />
-            </>
-          )}
-        </div>
+        <MapView
+          swarms={swarms} alliances={alliances} lobbyAgents={lobbyAgents}
+          zoomLevel={zoomLevel} selectedSwarm={selectedSwarm} selectedAgent={selectedAgent}
+          showLobby={showLobby} flyTarget={flyTarget} onFlyComplete={onFlyComplete} showMap={showMap}
+        />
       )}
 
-      {/* Content pages — scrollable with sticky header */}
       {isContentPage && (
         <div style={{ width: "100vw", height: "100vh", overflow: "auto", background: "#0A0E1A" }}>
           <TopBar />
