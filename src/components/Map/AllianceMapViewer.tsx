@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState, useEffect, useRef } from "react";
-import { Canvas } from "@react-three/fiber";
+import { Canvas, useThree, invalidate } from "@react-three/fiber";
 import { OrbitControls } from "@react-three/drei";
 import { EffectComposer, Bloom, Vignette } from "@react-three/postprocessing";
 import * as THREE from "three";
@@ -121,6 +121,16 @@ function SceneContent({ swarms, alliances, lobbyAgents, zoomLevel, selectedSwarm
   );
 }
 
+function ForceRender() {
+  const { gl, scene, camera } = useThree();
+  useEffect(() => {
+    gl.render(scene, camera);
+    gl.setAnimationLoop(() => { gl.render(scene, camera); });
+    return () => { gl.setAnimationLoop(null); };
+  }, [gl, scene, camera]);
+  return null;
+}
+
 function MapPreloader() {
   return (
     <>
@@ -171,6 +181,15 @@ export default function AllianceMapViewer() {
   const [showMap, setShowMap] = useState(false);
   useEffect(() => {
     const t = setTimeout(() => setShowMap(true), 1500);
+    return () => clearTimeout(t);
+  }, []);
+
+  // Force Three.js to render on mount — fixes "blank until tab switch" bug
+  useEffect(() => {
+    const t = setTimeout(() => {
+      invalidate();
+      window.dispatchEvent(new Event("resize"));
+    }, 100);
     return () => clearTimeout(t);
   }, []);
 
@@ -255,9 +274,11 @@ export default function AllianceMapViewer() {
             transition: "opacity 0.8s ease",
           }}>
             <Canvas camera={{ position: [0, 50, 40], fov: 50, near: 0.1, far: 300 }}
+              frameloop="always"
               gl={{ antialias: true, alpha: false, powerPreference: "high-performance" }}
               style={{ width: "100%", height: "100%", background: "#0A0E1A" }}
             >
+              <ForceRender />
               <color attach="background" args={["#0A0E1A"]} />
               <fog attach="fog" args={["#0A0E1A", 50, 120]} />
               {swarms.length > 0 && (
