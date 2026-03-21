@@ -25,7 +25,8 @@ import LeaderboardPage from "../Pages/LeaderboardPage";
 import TaskPoolsPage from "../Pages/TaskPoolsPage";
 import MySwarmPage from "../Pages/MySwarmPage";
 import LandingPage from "../Pages/LandingPage";
-import { useSwarms, useAlliances, useLobbyAgents } from "../../hooks/useApiData";
+import { useSwarms, useAlliances, useLobbyAgents, useLiveFeed } from "../../hooks/useApiData";
+import MapLegend from "../UI/MapLegend";
 import { useTerrainGeneration, TERRAIN_SIZE } from "../../hooks/useTerrainGeneration";
 import { ArenaContext, type ArenaState } from "../../hooks/useCameraControls";
 import type { ZoomLevel, Page, Alliance, Swarm } from "../../data/types";
@@ -74,9 +75,10 @@ function ForceInitialRender() {
   return null;
 }
 
-function SceneContent({ swarms, alliances, lobbyAgents, zoomLevel, selectedSwarm, selectedAgent, showLobby, flyTarget, onFlyComplete, controlsRef }: {
+function SceneContent({ swarms, alliances, lobbyAgents, zoomLevel, selectedSwarm, selectedAgent, showLobby, flyTarget, onFlyComplete, controlsRef, recentlyActive, disputeSwarms }: {
   swarms: Swarm[]; alliances: Alliance[]; lobbyAgents: any[]; zoomLevel: ZoomLevel; selectedSwarm: string | null; selectedAgent: string | null; showLobby: boolean;
   flyTarget: { position: THREE.Vector3; lookAt: THREE.Vector3 } | null; onFlyComplete: () => void; controlsRef: React.MutableRefObject<OrbitControlsImpl | null>;
+  recentlyActive: Set<string>; disputeSwarms: Set<string>;
 }) {
   const swarmPositions = useMemo(() => swarms.map((s) => ({ x: s.territory.x, z: s.territory.z, rep: s.reputation })), [swarms]);
   const { geometry, heights, minHeight, maxHeight, terrainSize, segments } = useTerrainGeneration(swarmPositions);
@@ -105,7 +107,8 @@ function SceneContent({ swarms, alliances, lobbyAgents, zoomLevel, selectedSwarm
       ))}
 
       {swarms.map((swarm) => (
-        <SwarmSettlement key={swarm.id} swarm={swarm} heights={heights} segments={segments} allianceColor={getSwarmColor(swarm)} />
+        <SwarmSettlement key={swarm.id} swarm={swarm} heights={heights} segments={segments} allianceColor={getSwarmColor(swarm)}
+          isRecentlyActive={recentlyActive.has(swarm.id)} hasDispute={disputeSwarms.has(swarm.id)} />
       ))}
 
       {zoomLevel >= 2 && selectedSwarmData && selectedSwarmData.agents.map((agent, i) => (
@@ -170,11 +173,11 @@ function MapPreloader() {
 
 // The Map component — rendered only when activePage === "map"
 // Uses key={canvasKey} to force remount the Canvas on first render
-function MapView({ swarms, alliances, lobbyAgents, zoomLevel, selectedSwarm, selectedAgent, showLobby, flyTarget, onFlyComplete, showMap }: {
+function MapView({ swarms, alliances, lobbyAgents, zoomLevel, selectedSwarm, selectedAgent, showLobby, flyTarget, onFlyComplete, showMap, recentlyActive, disputeSwarms }: {
   swarms: Swarm[]; alliances: Alliance[]; lobbyAgents: any[];
   zoomLevel: ZoomLevel; selectedSwarm: string | null; selectedAgent: string | null;
   showLobby: boolean; flyTarget: { position: THREE.Vector3; lookAt: THREE.Vector3 } | null;
-  onFlyComplete: () => void; showMap: boolean;
+  onFlyComplete: () => void; showMap: boolean; recentlyActive: Set<string>; disputeSwarms: Set<string>;
 }) {
   const controlsRef = useRef<OrbitControlsImpl | null>(null);
   const [canvasKey, setCanvasKey] = useState(0);
@@ -224,6 +227,7 @@ function MapView({ swarms, alliances, lobbyAgents, zoomLevel, selectedSwarm, sel
             <SceneContent swarms={swarms} alliances={alliances} lobbyAgents={lobbyAgents}
               zoomLevel={zoomLevel} selectedSwarm={selectedSwarm} selectedAgent={selectedAgent} showLobby={showLobby}
               flyTarget={flyTarget} onFlyComplete={onFlyComplete} controlsRef={controlsRef}
+              recentlyActive={recentlyActive} disputeSwarms={disputeSwarms}
             />
           )}
         </Canvas>
@@ -245,6 +249,7 @@ function MapView({ swarms, alliances, lobbyAgents, zoomLevel, selectedSwarm, sel
           <SwarmPanel swarms={swarms} alliances={alliances} />
           <AgentPanel swarms={swarms} />
           <LobbyPanel />
+          <MapLegend />
         </>
       )}
     </div>
@@ -255,6 +260,18 @@ export default function AllianceMapViewer() {
   const swarms = useSwarms();
   const alliances = useAlliances();
   const lobbyAgents = useLobbyAgents();
+  const liveFeed = useLiveFeed();
+
+  // Compute recently active + dispute swarms from live feed
+  const { recentlyActive, disputeSwarms } = useMemo(() => {
+    const active = new Set<string>();
+    const disputes = new Set<string>();
+    liveFeed.forEach((ev) => {
+      if (ev.relatedSwarm) active.add(ev.relatedSwarm);
+      if (ev.relatedSwarm && (ev.eventType === "dispute" || ev.eventType === "slashing")) disputes.add(ev.relatedSwarm);
+    });
+    return { recentlyActive: active, disputeSwarms: disputes };
+  }, [liveFeed]);
 
   const [zoomLevel, setZoomLevel] = useState<ZoomLevel>(1);
   const [selectedSwarm, setSelectedSwarm] = useState<string | null>(null);
@@ -336,6 +353,7 @@ export default function AllianceMapViewer() {
           swarms={swarms} alliances={alliances} lobbyAgents={lobbyAgents}
           zoomLevel={zoomLevel} selectedSwarm={selectedSwarm} selectedAgent={selectedAgent}
           showLobby={showLobby} flyTarget={flyTarget} onFlyComplete={onFlyComplete} showMap={showMap}
+          recentlyActive={recentlyActive} disputeSwarms={disputeSwarms}
         />
       )}
 

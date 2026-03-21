@@ -1,3 +1,4 @@
+import { useState, useMemo } from "react";
 import { useArena } from "../../hooks/useCameraControls";
 import type { Swarm, Alliance } from "../../data/types";
 
@@ -10,7 +11,17 @@ const tierColors: Record<string, string> = {
 
 export default function SwarmSidebar({ swarms, alliances: _alliances }: { swarms: Swarm[]; alliances: Alliance[] }) {
   const { flyToSwarm, selectedSwarm, setShowLobby } = useArena();
-  const sorted = [...swarms].sort((a, b) => b.reputation - a.reputation);
+  const [search, setSearch] = useState("");
+
+  const sorted = useMemo(() => [...swarms].sort((a, b) => b.reputation - a.reputation), [swarms]);
+
+  const filtered = useMemo(() => {
+    if (!search.trim()) return sorted;
+    const q = search.toLowerCase();
+    return sorted.filter((s) =>
+      s.name.toLowerCase().includes(q) || s.specialization.toLowerCase().includes(q) || s.tier.toLowerCase().includes(q)
+    );
+  }, [sorted, search]);
 
   function getColor(s: Swarm): string {
     const ac: Record<string, string> = { "sentinel-pact": "#00D4FF", "forge-collective": "#7B61FF", "nexus-order": "#FFB800", "phantom-circuit": "#FF4D6A", "arcane-assembly": "#4DFFB8" };
@@ -28,7 +39,7 @@ export default function SwarmSidebar({ swarms, alliances: _alliances }: { swarms
           SWARMS · {swarms.length}
         </div>
 
-        {/* Lobby */}
+        {/* Lobby — always visible */}
         <div onClick={() => setShowLobby(true)} style={{
           padding: "10px 12px", borderRadius: 6, marginBottom: 8, cursor: "pointer",
           background: "rgba(123,97,255,0.04)", border: "1px solid rgba(123,97,255,0.08)",
@@ -40,8 +51,23 @@ export default function SwarmSidebar({ swarms, alliances: _alliances }: { swarms
           <div style={{ fontFamily: mono, fontSize: 9, color: "#4A5568", marginTop: 4, paddingLeft: 14 }}>Recruitment zone</div>
         </div>
 
-        {/* Swarm list */}
-        {sorted.map((s) => {
+        {/* Search */}
+        <div style={{ padding: "0 4px", marginBottom: 8 }}>
+          <input
+            type="text" placeholder="Search swarms..." value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            style={{
+              width: "100%", padding: "8px 12px", backgroundColor: "rgba(255,255,255,0.04)",
+              border: "1px solid rgba(255,255,255,0.08)", borderRadius: 6,
+              fontFamily: mono, fontSize: 11, color: "#E8EDF2", outline: "none",
+            }}
+            onFocus={(e) => { e.target.style.borderColor = "rgba(0,212,255,0.3)"; }}
+            onBlur={(e) => { e.target.style.borderColor = "rgba(255,255,255,0.08)"; }}
+          />
+        </div>
+
+        {/* Filtered swarm list */}
+        {filtered.map((s) => {
           const color = getColor(s);
           const isSelected = selectedSwarm === s.id;
           return (
@@ -60,6 +86,12 @@ export default function SwarmSidebar({ swarms, alliances: _alliances }: { swarms
             </div>
           );
         })}
+
+        {filtered.length === 0 && (
+          <div style={{ padding: "16px 12px", fontFamily: mono, fontSize: 11, color: "#4A5568", textAlign: "center" }}>
+            No swarms matching "{search}"
+          </div>
+        )}
       </div>
     </div>
   );
