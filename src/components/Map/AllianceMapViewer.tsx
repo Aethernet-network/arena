@@ -200,21 +200,31 @@ function MapView({ swarms, alliances, lobbyAgents, zoomLevel, selectedSwarm, sel
     return () => { clearTimeout(t1); clearTimeout(t2); clearTimeout(t3); };
   }, []);
 
-  // Smooth pan — lerp toward target using rAF loop
+  // Smooth pan with orbit-cancel
   const panPosTarget = useRef(new THREE.Vector3());
   const panLookTarget = useRef(new THREE.Vector3());
   const isPanning = useRef(false);
   const panFrameId = useRef(0);
 
-  // rAF-based lerp loop (runs outside Canvas — needed because handlePan is called from overlay buttons)
+  // Cancel pan when user grabs orbit controls (mousedown/touch on canvas)
+  useEffect(() => {
+    const controls = controlsRef.current;
+    if (!controls) return;
+    const cancel = () => {
+      isPanning.current = false;
+      cancelAnimationFrame(panFrameId.current);
+    };
+    controls.addEventListener("start", cancel);
+    return () => controls.removeEventListener("start", cancel);
+  }, [controlsRef.current]);
+
   const panLoop = useCallback(() => {
     const controls = controlsRef.current;
     if (!controls || !isPanning.current) return;
     const camera = controls.object;
-    const speed = 0.08;
 
-    camera.position.lerp(panPosTarget.current, speed);
-    controls.target.lerp(panLookTarget.current, speed);
+    camera.position.lerp(panPosTarget.current, 0.08);
+    controls.target.lerp(panLookTarget.current, 0.08);
     controls.update();
 
     if (camera.position.distanceTo(panPosTarget.current) < 0.05) {
@@ -249,18 +259,15 @@ function MapView({ swarms, alliances, lobbyAgents, zoomLevel, selectedSwarm, sel
       case "right": offset = right.clone().multiplyScalar(PAN_DISTANCE); break;
     }
 
-    // Stack: add offset to current camera position (allows rapid clicks)
+    // Set target from CURRENT actual position
     panPosTarget.current.copy(camera.position).add(offset);
     panLookTarget.current.copy(controls.target).add(offset);
 
-    if (!isPanning.current) {
-      isPanning.current = true;
-      cancelAnimationFrame(panFrameId.current);
-      panFrameId.current = requestAnimationFrame(panLoop);
-    }
+    isPanning.current = true;
+    cancelAnimationFrame(panFrameId.current);
+    panFrameId.current = requestAnimationFrame(panLoop);
   }, [panLoop]);
 
-  // Cleanup rAF on unmount
   useEffect(() => () => cancelAnimationFrame(panFrameId.current), []);
 
   // Arrow key panning
