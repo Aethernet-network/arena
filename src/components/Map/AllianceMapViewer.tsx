@@ -27,6 +27,7 @@ import MySwarmPage from "../Pages/MySwarmPage";
 import LandingPage from "../Pages/LandingPage";
 import { useSwarms, useAlliances, useLobbyAgents, useLiveFeed } from "../../hooks/useApiData";
 import MapLegend from "../UI/MapLegend";
+import MapPanControls from "../UI/MapPanControls";
 import { useTerrainGeneration, TERRAIN_SIZE } from "../../hooks/useTerrainGeneration";
 import { ArenaContext, type ArenaState } from "../../hooks/useCameraControls";
 import type { ZoomLevel, Page, Alliance, Swarm } from "../../data/types";
@@ -199,6 +200,49 @@ function MapView({ swarms, alliances, lobbyAgents, zoomLevel, selectedSwarm, sel
     return () => { clearTimeout(t1); clearTimeout(t2); clearTimeout(t3); };
   }, []);
 
+  // Pan handler — moves both camera and orbit target to preserve angle/zoom
+  const PAN_DISTANCE = 8;
+  const handlePan = useCallback((direction: "up" | "down" | "left" | "right") => {
+    const controls = controlsRef.current;
+    if (!controls) return;
+    const camera = controls.object;
+
+    const forward = new THREE.Vector3();
+    camera.getWorldDirection(forward);
+    forward.y = 0;
+    forward.normalize();
+
+    const right = new THREE.Vector3();
+    right.crossVectors(forward, new THREE.Vector3(0, 1, 0)).normalize();
+
+    let offset = new THREE.Vector3();
+    switch (direction) {
+      case "up": offset = forward.clone().multiplyScalar(PAN_DISTANCE); break;
+      case "down": offset = forward.clone().multiplyScalar(-PAN_DISTANCE); break;
+      case "left": offset = right.clone().multiplyScalar(-PAN_DISTANCE); break;
+      case "right": offset = right.clone().multiplyScalar(PAN_DISTANCE); break;
+    }
+
+    camera.position.add(offset);
+    controls.target.add(offset);
+    controls.update();
+  }, []);
+
+  // Arrow key panning
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.target instanceof HTMLInputElement) return; // Don't pan while typing in search
+      switch (e.key) {
+        case "ArrowUp": handlePan("up"); break;
+        case "ArrowDown": handlePan("down"); break;
+        case "ArrowLeft": handlePan("left"); break;
+        case "ArrowRight": handlePan("right"); break;
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [handlePan]);
+
   return (
     <div style={{ position: "relative", width: "100vw", height: "100vh", overflow: "hidden", background: "#0A0E1A" }}>
       {/* Preloader overlay */}
@@ -246,6 +290,7 @@ function MapView({ swarms, alliances, lobbyAgents, zoomLevel, selectedSwarm, sel
           <div style={{ transition: "opacity 0.5s", opacity: zoomLevel === 1 && !showLobby ? 1 : 0, pointerEvents: zoomLevel === 1 && !showLobby ? "auto" : "none" }}>
             <LiveFeed />
           </div>
+          <MapPanControls onPan={handlePan} />
           <SwarmPanel swarms={swarms} alliances={alliances} />
           <AgentPanel swarms={swarms} />
           <LobbyPanel />
