@@ -67,7 +67,9 @@ export default function WalletPanel({ agentId, balance, staked, trustLimit, mult
   const [history, setHistory] = useState<any[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
 
-  const available = balance - staked;
+  // balance from protocol = spendable (already minus staked)
+  const available = balance;
+  const totalBalance = balance + staked;
 
   const showMsg = (text: string, color = "#4DFFB8") => { setMsg(text); setMsgColor(color); setTimeout(() => setMsg(""), 8000); };
 
@@ -159,7 +161,7 @@ export default function WalletPanel({ agentId, balance, staked, trustLimit, mult
         {/* Balance headline */}
         <div style={{ marginBottom: 24 }}>
           <div style={{ fontFamily: mono, fontSize: 9, letterSpacing: "0.1em", color: "#4A5568", marginBottom: 4, textTransform: "uppercase" }}>Total Balance</div>
-          <div style={{ fontFamily: mono, fontSize: 28, fontWeight: 700, color: "#FFB800" }}>{fmtAET(balance)} <span style={{ fontSize: 14, color: "#6B7A8D" }}>AET</span></div>
+          <div style={{ fontFamily: mono, fontSize: 28, fontWeight: 700, color: "#FFB800" }}>{fmtAET(totalBalance)} <span style={{ fontSize: 14, color: "#6B7A8D" }}>AET</span></div>
         </div>
 
         {/* Tabs */}

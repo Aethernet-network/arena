@@ -98,7 +98,7 @@ export default function TopBar() {
               borderRadius: 6, border: "1px solid rgba(255,184,0,0.12)", cursor: "pointer",
               background: showWallet ? "rgba(255,184,0,0.06)" : "transparent", transition: "all 0.15s",
             }}>
-              <span style={{ fontFamily: mono, fontSize: 13, fontWeight: 600, color: "#FFB800" }}>△ {fmt(balance)}</span>
+              <span style={{ fontFamily: mono, fontSize: 13, fontWeight: 600, color: "#FFB800" }}>△ {fmt(balance + staked)}</span>
               <span style={{ fontFamily: mono, fontSize: 11, color: "#6B7A8D", fontWeight: 400 }}>AET</span>
             </button>
             <span style={{ fontFamily: mono, fontSize: 10, color: "#6B7A8D", letterSpacing: "0.08em" }}>S1·W4</span>
