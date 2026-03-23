@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import { api } from "../../services/api";
 
 const mono = "'IBM Plex Mono', monospace";
@@ -51,12 +51,16 @@ function ActionInput({ label, placeholder, buttonLabel, onSubmit, max, loading, 
   );
 }
 
-export default function WalletPanel({ agentId, balance, staked, trustLimit, multiplier, onClose, onBalanceChange, onStakeChange }: Props) {
+export default function WalletPanel({ agentId, balance, staked, trustLimit: initialTrustLimit, multiplier, onClose, onBalanceChange, onStakeChange }: Props) {
   const [tab, setTab] = useState<Tab>("overview");
   const [msg, setMsg] = useState("");
   const [msgColor, setMsgColor] = useState("#4DFFB8");
   const [loading, setLoading] = useState(false);
   const [faucetLoading, setFaucetLoading] = useState(false);
+  const [trustLimit, setTrustLimit] = useState(initialTrustLimit);
+
+  // Pending settlement state
+  const [pending, setPending] = useState<{ description: string } | null>(null);
 
   // Transfer state
   const [recipient, setRecipient] = useState("");
@@ -67,70 +71,100 @@ export default function WalletPanel({ agentId, balance, staked, trustLimit, mult
   const [history, setHistory] = useState<any[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
 
-  // balance from protocol = spendable (already minus staked)
   const available = balance;
   const totalBalance = balance + staked;
 
   const showMsg = (text: string, color = "#4DFFB8") => { setMsg(text); setMsgColor(color); setTimeout(() => setMsg(""), 8000); };
 
-  const refreshData = useCallback(async () => {
-    if (!agentId) return;
+  // Poll a specific event until settled, then refresh wallet once
+  async function waitForSettlement(eventId: string, description: string) {
+    setPending({ description });
+
+    for (let i = 0; i < 20; i++) {
+      await new Promise((r) => setTimeout(r, 3000));
+      try {
+        const ev = await api.getEvent(eventId);
+        if (ev.settlement_state === "Settled" || ev.settlement_state === "Adjusted") break;
+      } catch {
+        // event not yet propagated — keep polling
+      }
+    }
+
+    // Settlement complete or timeout — refresh wallet once
     try {
       const [b, s] = await Promise.all([api.getAgentBalance(agentId), api.getAgentStake(agentId)]);
       if (b.balance != null) onBalanceChange(b.balance);
       if (s.staked_amount != null) onStakeChange(s.staked_amount);
+      if (s.trust_limit != null) setTrustLimit(s.trust_limit);
     } catch {}
-  }, [agentId, onBalanceChange, onStakeChange]);
 
-  const pollRefresh = useCallback(async () => {
-    showMsg("Settling through consensus...");
-    for (let i = 0; i < 10; i++) {
-      await new Promise((r) => setTimeout(r, 3000));
-      await refreshData();
-    }
-  }, [refreshData]);
+    setPending(null);
+  }
 
   async function handleStake(amtAET: number) {
     setLoading(true);
+    setMsg("");
     try {
-      await api.stakeTokens(agentId, Math.round(amtAET * MICRO));
-      showMsg(`Staked ${amtAET} AET`);
-      pollRefresh();
-    } catch (e: any) { showMsg(e.message || "Stake failed", "#FF4D6A"); }
-    setLoading(false);
+      const res = await api.stakeTokens(agentId, Math.round(amtAET * MICRO));
+      setLoading(false);
+      if (res.event_id) {
+        await waitForSettlement(res.event_id, `Staking ${amtAET.toLocaleString()} AET`);
+        showMsg("Stake confirmed");
+      } else {
+        showMsg(res.message || "Submitted");
+      }
+    } catch (e: any) { showMsg(e.message || "Stake failed", "#FF4D6A"); setLoading(false); }
   }
 
   async function handleUnstake(amtAET: number) {
     setLoading(true);
+    setMsg("");
     try {
-      await api.unstakeTokens(agentId, Math.round(amtAET * MICRO));
-      showMsg(`Unstaked ${amtAET} AET`);
-      pollRefresh();
-    } catch (e: any) { showMsg(e.message || "Unstake failed", "#FF4D6A"); }
-    setLoading(false);
+      const res = await api.unstakeTokens(agentId, Math.round(amtAET * MICRO));
+      setLoading(false);
+      if (res.event_id) {
+        await waitForSettlement(res.event_id, `Unstaking ${amtAET.toLocaleString()} AET`);
+        showMsg("Unstake confirmed");
+      } else {
+        showMsg(res.message || "Submitted");
+      }
+    } catch (e: any) { showMsg(e.message || "Unstake failed", "#FF4D6A"); setLoading(false); }
   }
 
   async function handleTransfer() {
     const amt = parseFloat(transferAmt);
     if (!recipient.trim() || !amt || amt <= 0) return;
     setLoading(true);
+    setMsg("");
     try {
       const res = await api.transfer(recipient.trim(), Math.round(amt * MICRO), memo.trim());
-      showMsg(`Sent ${amt} AET — ${res.event_id?.slice(0, 12)}...`);
       setRecipient(""); setTransferAmt(""); setMemo("");
-      pollRefresh();
-    } catch (e: any) { showMsg(e.message || "Transfer failed", "#FF4D6A"); }
-    setLoading(false);
+      setLoading(false);
+      if (res.event_id) {
+        await waitForSettlement(res.event_id, `Sending ${amt.toLocaleString()} AET`);
+        showMsg("Transfer confirmed");
+      } else {
+        showMsg(res.message || "Submitted");
+      }
+    } catch (e: any) { showMsg(e.message || "Transfer failed", "#FF4D6A"); setLoading(false); }
   }
 
   async function handleFaucet() {
     setFaucetLoading(true);
+    setMsg("");
     try {
       const res = await api.requestFaucet(agentId);
-      showMsg(res.message || `+${fmtAET(res.amount || 5000000000)} AET`);
-      pollRefresh();
-    } catch (e: any) { showMsg(e.message?.includes("cooldown") ? "Cooldown — try later" : (e.message || "Error"), "#FF4D6A"); }
-    setFaucetLoading(false);
+      setFaucetLoading(false);
+      if (res.event_id) {
+        await waitForSettlement(res.event_id, `Receiving ${fmtAET(res.amount || 5000000000)} AET`);
+        showMsg("Faucet grant confirmed");
+      } else {
+        showMsg(res.message || "Submitted");
+      }
+    } catch (e: any) {
+      showMsg(e.message?.includes("cooldown") ? "Cooldown — try later" : (e.message || "Error"), "#FF4D6A");
+      setFaucetLoading(false);
+    }
   }
 
   useEffect(() => {
@@ -144,6 +178,7 @@ export default function WalletPanel({ agentId, balance, staked, trustLimit, mult
   }, [tab, agentId, historyLoading, history.length]);
 
   const short = (id: string) => id?.length > 16 ? id.slice(0, 8) + "…" + id.slice(-4) : id || "—";
+  const dimmed = pending ? 0.5 : 1;
 
   return (
     <div style={{
@@ -151,6 +186,7 @@ export default function WalletPanel({ agentId, balance, staked, trustLimit, mult
       background: "rgba(8,10,18,0.97)", borderLeft: "1px solid rgba(255,255,255,0.06)",
       backdropFilter: "blur(20px)", overflowY: "auto", overflowX: "hidden",
     }}>
+      <style>{`@keyframes walletPulse { 0%, 100% { opacity: 0.4; } 50% { opacity: 1; } }`}</style>
       <div style={{ padding: "24px 28px" }}>
         {/* Header */}
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
@@ -158,8 +194,16 @@ export default function WalletPanel({ agentId, balance, staked, trustLimit, mult
           <button onClick={onClose} style={{ width: 28, height: 28, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 6, color: "#6B7A8D", cursor: "pointer", fontSize: 16, fontFamily: mono }}>×</button>
         </div>
 
+        {/* Pending indicator */}
+        {pending && (
+          <div style={{ padding: "10px 14px", borderRadius: 8, marginBottom: 12, background: "rgba(255,184,0,0.06)", border: "1px solid rgba(255,184,0,0.15)", display: "flex", alignItems: "center", gap: 8 }}>
+            <div style={{ width: 8, height: 8, borderRadius: "50%", background: "#FFB800", animation: "walletPulse 1.5s ease-in-out infinite", flexShrink: 0 }} />
+            <span style={{ fontFamily: mono, fontSize: 11, color: "#FFB800" }}>{pending.description}</span>
+          </div>
+        )}
+
         {/* Balance headline */}
-        <div style={{ marginBottom: 24 }}>
+        <div style={{ marginBottom: 24, opacity: dimmed, transition: "opacity 0.3s" }}>
           <div style={{ fontFamily: mono, fontSize: 9, letterSpacing: "0.1em", color: "#4A5568", marginBottom: 4, textTransform: "uppercase" }}>Total Balance</div>
           <div style={{ fontFamily: mono, fontSize: 28, fontWeight: 700, color: "#FFB800" }}>{fmtAET(totalBalance)} <span style={{ fontSize: 14, color: "#6B7A8D" }}>AET</span></div>
         </div>
@@ -176,7 +220,7 @@ export default function WalletPanel({ agentId, balance, staked, trustLimit, mult
 
         {/* Overview */}
         {tab === "overview" && (
-          <div>
+          <div style={{ opacity: dimmed, transition: "opacity 0.3s" }}>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 24 }}>
               {[
                 { label: "STAKED", value: fmtAET(staked), color: "#E8EDF2" },
@@ -195,25 +239,24 @@ export default function WalletPanel({ agentId, balance, staked, trustLimit, mult
               <div style={{ marginBottom: 20 }}>
                 <div style={{ fontFamily: mono, fontSize: 8, letterSpacing: "0.1em", color: "#4A5568", marginBottom: 4 }}>AGENT ID</div>
                 <div style={{ fontFamily: mono, fontSize: 10, color: "#6B7A8D", wordBreak: "break-all", padding: 10, borderRadius: 6, background: "rgba(255,255,255,0.015)", cursor: "pointer" }}
-                  onClick={() => navigator.clipboard?.writeText(agentId)}
-                  title="Click to copy"
+                  onClick={() => navigator.clipboard?.writeText(agentId)} title="Click to copy"
                 >{agentId}</div>
               </div>
             )}
 
-            <button onClick={handleFaucet} disabled={faucetLoading} style={{
+            <button onClick={handleFaucet} disabled={faucetLoading || !!pending} style={{
               width: "100%", padding: "12px 0", borderRadius: 8, fontSize: 11, fontFamily: mono,
-              color: faucetLoading ? "#4A5568" : "#00D4FF", background: "rgba(0,212,255,0.06)",
-              border: "1px solid rgba(0,212,255,0.15)", cursor: faucetLoading ? "default" : "pointer",
+              color: faucetLoading || pending ? "#4A5568" : "#00D4FF", background: "rgba(0,212,255,0.06)",
+              border: "1px solid rgba(0,212,255,0.15)", cursor: faucetLoading || pending ? "default" : "pointer",
             }}>{faucetLoading ? "Requesting..." : "Request 5,000 AET from Faucet"}</button>
           </div>
         )}
 
         {/* Stake */}
         {tab === "stake" && (
-          <div>
-            <ActionInput label="Stake AET" placeholder="Amount" buttonLabel="Stake" onSubmit={handleStake} max={available} loading={loading} color="#00D4FF" />
-            <ActionInput label="Unstake AET" placeholder="Amount" buttonLabel="Unstake" onSubmit={handleUnstake} max={staked} loading={loading} color="#FF4D6A" />
+          <div style={{ opacity: dimmed, transition: "opacity 0.3s" }}>
+            <ActionInput label="Stake AET" placeholder="Amount" buttonLabel="Stake" onSubmit={handleStake} max={available} loading={loading || !!pending} color="#00D4FF" />
+            <ActionInput label="Unstake AET" placeholder="Amount" buttonLabel="Unstake" onSubmit={handleUnstake} max={staked} loading={loading || !!pending} color="#FF4D6A" />
             <div style={{ padding: 16, borderRadius: 8, background: "rgba(255,255,255,0.015)", border: "1px solid rgba(255,255,255,0.04)" }}>
               <div style={{ fontFamily: mono, fontSize: 9, color: "#4A5568", marginBottom: 8, textTransform: "uppercase", letterSpacing: "0.1em" }}>Trust Multiplier</div>
               <div style={{ fontFamily: body, fontSize: 12, color: "#6B7A8D", lineHeight: 1.6 }}>
@@ -225,7 +268,7 @@ export default function WalletPanel({ agentId, balance, staked, trustLimit, mult
 
         {/* Transfer */}
         {tab === "transfer" && (
-          <div>
+          <div style={{ opacity: dimmed, transition: "opacity 0.3s" }}>
             <div style={{ marginBottom: 16 }}>
               <div style={{ fontFamily: mono, fontSize: 9, letterSpacing: "0.1em", color: "#4A5568", marginBottom: 6, textTransform: "uppercase" }}>Recipient Agent ID</div>
               <input value={recipient} onChange={(e) => setRecipient(e.target.value)} placeholder="agent-id-hex..."
@@ -245,8 +288,8 @@ export default function WalletPanel({ agentId, balance, staked, trustLimit, mult
                 style={{ width: "100%", padding: "10px 14px", borderRadius: 8, fontSize: 12, fontFamily: body, background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)", color: "#E8EDF2", outline: "none" }}
               />
             </div>
-            <button onClick={handleTransfer} disabled={loading || !recipient.trim() || !parseFloat(transferAmt)}
-              style={{ width: "100%", padding: "12px 0", borderRadius: 8, fontSize: 12, fontWeight: 600, fontFamily: heading, background: loading ? "rgba(255,255,255,0.03)" : "linear-gradient(135deg, #00D4FF, #7B61FF)", color: loading ? "#4A5568" : "#000", border: "none", cursor: loading ? "default" : "pointer" }}
+            <button onClick={handleTransfer} disabled={loading || !!pending || !recipient.trim() || !parseFloat(transferAmt)}
+              style={{ width: "100%", padding: "12px 0", borderRadius: 8, fontSize: 12, fontWeight: 600, fontFamily: heading, background: loading || pending ? "rgba(255,255,255,0.03)" : "linear-gradient(135deg, #00D4FF, #7B61FF)", color: loading || pending ? "#4A5568" : "#000", border: "none", cursor: loading || pending ? "default" : "pointer" }}
             >{loading ? "Sending..." : "Send AET"}</button>
           </div>
         )}

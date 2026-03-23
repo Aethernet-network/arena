@@ -287,6 +287,11 @@ async function getTaskPools(): Promise<TaskPool[]> {
 
 // === Task lifecycle (all authenticated) ===
 
+async function getEvent(eventId: string) {
+  if (isMock) return mockDelay({ settlement_state: "Settled" });
+  return fetchJSON<any>(`${API_BASE}/v1/events/${eventId}`);
+}
+
 async function getTask(taskId: string) {
   if (isMock) return mockDelay(null);
   return fetchJSON<any>(`${API_BASE}/v1/tasks/${taskId}`);
@@ -353,6 +358,6 @@ export const api = {
   transfer, getAgentEvents,
   listSwarms, getSwarm, listAlliances, getLobbyAgents,
   getTaskPools, getLiveFeed, getNetworkStats, getLeaderboard,
-  getTask, getTaskResult, postTask, claimTask, submitResult, approveTask, disputeTask,
+  getEvent, getTask, getTaskResult, postTask, claimTask, submitResult, approveTask, disputeTask,
   registerForRouting, discoverAgents, registerService, searchServices,
 };
