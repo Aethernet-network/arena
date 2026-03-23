@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useArena } from "../../hooks/useCameraControls";
-import { api, isMock } from "../../services/api";
+import { api, isMock, initApi, getStoredAgentId } from "../../services/api";
 import WalletPanel from "./WalletPanel";
 import type { Page } from "../../data/types";
 
@@ -29,19 +29,32 @@ export default function TopBar() {
   const [trustLimit, setTrustLimit] = useState(50000000000);
   const [multiplier, setMultiplier] = useState(2);
 
+  function loadWalletData(id: string) {
+    api.getAgentBalance(id).then((b: any) => { if (b.balance != null) setBalance(b.balance); }).catch(() => {});
+    api.getAgentStake(id).then((s: any) => {
+      if (s.staked_amount != null) setStaked(s.staked_amount);
+      if (s.trust_limit != null) setTrustLimit(s.trust_limit);
+      if (s.trust_multiplier != null) setMultiplier(s.trust_multiplier);
+    }).catch(() => {});
+  }
+
   useEffect(() => {
     if (isMock) return;
-    api.getStatus().then((s: any) => {
-      const id = s.agent_id || "";
-      setAgentId(id);
-      if (!id) return;
-      api.getAgentBalance(id).then((b: any) => { if (b.balance != null) setBalance(b.balance); }).catch(() => {});
-      api.getAgentStake(id).then((s: any) => {
-        if (s.staked_amount != null) setStaked(s.staked_amount);
-        if (s.trust_limit != null) setTrustLimit(s.trust_limit);
-        if (s.trust_multiplier != null) setMultiplier(s.trust_multiplier);
-      }).catch(() => {});
-    }).catch(() => {});
+    initApi().then(() => {
+      // Use stored agent ID if available (from previous registration)
+      const storedId = getStoredAgentId();
+      if (storedId) {
+        setAgentId(storedId);
+        loadWalletData(storedId);
+      } else {
+        // Fall back to node's agent ID for first visit
+        api.getStatus().then((s: any) => {
+          const id = s.agent_id || "";
+          setAgentId(id);
+          if (id) loadWalletData(id);
+        }).catch(() => {});
+      }
+    });
   }, []);
 
   return (
