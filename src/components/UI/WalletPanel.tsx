@@ -90,17 +90,32 @@ export default function WalletPanel({ agentId, balance, staked, trustLimit: init
       }
     }
 
-    // Settlement complete or timeout — refresh wallet once
-    // Small delay to let all nodes converge
-    await new Promise((r) => setTimeout(r, 1000));
+    // Settlement complete — wait for Applicator to update staking metadata
+    await new Promise((r) => setTimeout(r, 2000));
+
+    // First fetch — balance is usually ready, staked may lag
     try {
-      const [b, s] = await Promise.all([api.getAgentBalance(agentId), api.getAgentStake(agentId)]);
-      const newBal = b?.balance ?? b?.amount;
-      const newStake = s?.staked_amount ?? s?.staked ?? s?.amount;
-      const newTrust = s?.trust_limit;
-      if (newBal != null) onBalanceChange(newBal);
-      if (newStake != null) onStakeChange(newStake);
-      if (newTrust != null) setTrustLimit(newTrust);
+      const [b1, s1] = await Promise.all([api.getAgentBalance(agentId), api.getAgentStake(agentId)]);
+      console.log("wallet refresh (first)", { balance: b1?.balance, staked_amount: s1?.staked_amount, trust_limit: s1?.trust_limit });
+      const bal1 = b1?.balance ?? b1?.amount;
+      const stake1 = s1?.staked_amount ?? s1?.staked ?? s1?.amount;
+      const trust1 = s1?.trust_limit;
+      if (bal1 != null) onBalanceChange(bal1);
+      if (stake1 != null) onStakeChange(stake1);
+      if (trust1 != null) setTrustLimit(trust1);
+    } catch {}
+
+    // Second fetch — catches staking metadata propagation delay
+    await new Promise((r) => setTimeout(r, 3000));
+    try {
+      const [b2, s2] = await Promise.all([api.getAgentBalance(agentId), api.getAgentStake(agentId)]);
+      console.log("wallet refresh (final)", { balance: b2?.balance, staked_amount: s2?.staked_amount, trust_limit: s2?.trust_limit });
+      const bal2 = b2?.balance ?? b2?.amount;
+      const stake2 = s2?.staked_amount ?? s2?.staked ?? s2?.amount;
+      const trust2 = s2?.trust_limit;
+      if (bal2 != null) onBalanceChange(bal2);
+      if (stake2 != null) onStakeChange(stake2);
+      if (trust2 != null) setTrustLimit(trust2);
     } catch {}
 
     setPending(null);
