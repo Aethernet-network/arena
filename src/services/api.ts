@@ -28,9 +28,6 @@ function getApiKey(): string | null {
   try { return localStorage.getItem(API_KEY_STORAGE); } catch { return null; }
 }
 
-function getStoredApiKey(): string | null {
-  return getApiKey();
-}
 function storeApiKey(key: string): void {
   try { localStorage.setItem(API_KEY_STORAGE, key); } catch {}
 }
