@@ -242,6 +242,19 @@ async function getTaskResult(taskId: string) {
   return fetchJSON<any>(`${API_BASE}/v1/tasks/result/${taskId}`);
 }
 
+async function transfer(toAgent: string, amount: number, memo?: string) {
+  if (isMock) return mockDelay({ event_id: `transfer-${Date.now()}` });
+  return fetchJSON<any>(`${API_BASE}/v1/transfer`, {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ to_agent: toAgent, amount, memo: memo || "" }),
+  });
+}
+
+async function getAgentEvents(limit = 20) {
+  if (isMock) return mockDelay([]);
+  return fetchJSON<any[]>(`${API_BASE}/v1/events/recent?limit=${limit}`);
+}
+
 async function postTask(params: Record<string, unknown>) {
   if (isMock) return mockDelay({ id: `task-${Date.now()}`, ...params, status: "open" });
   return fetchJSON<any>(`${API_BASE}/v1/tasks`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(params) });
@@ -296,6 +309,7 @@ export const api = {
   // Protocol-native (always real when connected)
   getStatus, getEconomics, getAgents, getAgentBalance, getAgentStake,
   stakeTokens, unstakeTokens, requestFaucet, registerAgent,
+  transfer, getAgentEvents,
   // Arena L2 (demo data in demo mode)
   listSwarms, getSwarm, listAlliances, getLobbyAgents,
   getTaskPools, getLiveFeed, getNetworkStats, getLeaderboard,
