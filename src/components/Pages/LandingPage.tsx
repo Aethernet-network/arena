@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useArena } from "../../hooks/useCameraControls";
+import { api, isMock } from "../../services/api";
 
 const mono = "'IBM Plex Mono', monospace";
 const body = "'Inter', sans-serif";
@@ -16,15 +17,35 @@ function Logo({ size = 48 }: { size?: number }) {
 }
 
 function StatTicker() {
-  const [s, setS] = useState(1072);
-  useEffect(() => { const i = setInterval(() => setS((v) => v + Math.floor(Math.random() * 3)), 4000); return () => clearInterval(i); }, []);
+  const [stats, setStats] = useState({ settlements: 1072, fees: "37.3", agents: 32 });
+  const [mockCounter, setMockCounter] = useState(1072);
+
+  useEffect(() => {
+    if (isMock) {
+      const i = setInterval(() => setMockCounter((v) => v + Math.floor(Math.random() * 3)), 4000);
+      return () => clearInterval(i);
+    }
+    // Live: fetch real data
+    Promise.all([api.getStatus(), api.getEconomics(), api.getAgents()])
+      .then(([status, econ, agents]) => {
+        setStats({
+          settlements: (status as any).dag_size || 0,
+          fees: (((econ as any).total_collected || 0) / 1_000_000).toFixed(1),
+          agents: agents.length || 0,
+        });
+      })
+      .catch(() => {});
+  }, []);
+
+  const settlementCount = isMock ? mockCounter : stats.settlements;
+
   return (
     <div style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: 24, width: "100%", fontFamily: mono, fontSize: 12, color: "#4A5568" }}>
-      <span>{s.toLocaleString()} settlements</span>
+      <span>{settlementCount.toLocaleString()} settlements</span>
       <span style={{ color: "rgba(255,255,255,0.1)" }}>·</span>
-      <span>37.3 AET fees</span>
+      <span>{stats.fees} AET fees</span>
       <span style={{ color: "rgba(255,255,255,0.1)" }}>·</span>
-      <span>32 swarms</span>
+      <span>{stats.agents} agents</span>
     </div>
   );
 }
@@ -33,6 +54,22 @@ function JoinModal({ onClose, onComplete }: { onClose: () => void; onComplete: (
   const [step, setStep] = useState(1);
   const [name, setName] = useState("");
   const [stake, setStake] = useState(10000);
+  const [deploying, setDeploying] = useState(false);
+  const [deployError, setDeployError] = useState("");
+
+  async function handleDeploy() {
+    if (isMock) { setStep(3); return; }
+    setDeploying(true);
+    setDeployError("");
+    try {
+      const agent = await api.registerAgent({ agent_id: name.toLowerCase().replace(/\s+/g, "-") });
+      if (stake > 0) await api.stakeTokens(agent.agent_id, stake * 1_000_000);
+      setStep(3);
+    } catch (e: any) {
+      setDeployError(e.message || "Registration failed");
+    }
+    setDeploying(false);
+  }
 
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
@@ -84,7 +121,8 @@ function JoinModal({ onClose, onComplete }: { onClose: () => void; onComplete: (
               </div>
               <div style={{ display: "flex", gap: 12 }}>
                 <button onClick={() => setStep(1)} style={{ padding: "12px 20px", borderRadius: 10, fontSize: 12, fontFamily: body, color: "rgba(255,255,255,0.3)", background: "rgba(255,255,255,0.03)", border: "none", cursor: "pointer" }}>Back</button>
-                <button onClick={() => setStep(3)} style={{ flex: 1, padding: "12px 0", borderRadius: 10, fontSize: 13, fontWeight: 600, fontFamily: heading, background: "linear-gradient(135deg, #00D4FF, #7B61FF)", color: "#000", border: "none", cursor: "pointer" }}>Continue</button>
+                <button onClick={handleDeploy} disabled={deploying} style={{ flex: 1, padding: "12px 0", borderRadius: 10, fontSize: 13, fontWeight: 600, fontFamily: heading, background: deploying ? "rgba(255,255,255,0.04)" : "linear-gradient(135deg, #00D4FF, #7B61FF)", color: deploying ? "#4A5568" : "#000", border: "none", cursor: deploying ? "default" : "pointer" }}>{deploying ? "Deploying..." : "Deploy Swarm"}</button>
+                {deployError && <div style={{ fontFamily: mono, fontSize: 10, color: "#FF4D6A", marginTop: 8, textAlign: "center" }}>{deployError}</div>}
               </div>
             </motion.div>
           )}
