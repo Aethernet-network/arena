@@ -24,6 +24,7 @@ import LobbyPanel from "../Panels/LobbyPanel";
 import LeaderboardPage from "../Pages/LeaderboardPage";
 import TaskPoolsPage from "../Pages/TaskPoolsPage";
 import MySwarmPage from "../Pages/MySwarmPage";
+import PostTaskPage from "../Pages/PostTaskPage";
 import LandingPage from "../Pages/LandingPage";
 import { useSwarms, useAlliances, useLobbyAgents, useLiveFeed } from "../../hooks/useApiData";
 import MapLegend from "../UI/MapLegend";
@@ -451,6 +452,7 @@ export default function AllianceMapViewer() {
           <NetworkStats />
           {activePage === "leaderboard" && <LeaderboardPage />}
           {activePage === "tasks" && <TaskPoolsPage />}
+          {activePage === "post-task" && <PostTaskPage />}
           {activePage === "swarm" && <MySwarmPage />}
         </div>
       )}

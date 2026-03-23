@@ -11,6 +11,7 @@ const navItems: { id: Page; label: string }[] = [
   { id: "map", label: "Map" },
   { id: "leaderboard", label: "Leaderboard" },
   { id: "tasks", label: "Tasks" },
+  { id: "post-task", label: "Post Task" },
   { id: "swarm", label: "My Swarm" },
 ];
 

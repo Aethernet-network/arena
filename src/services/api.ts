@@ -232,6 +232,16 @@ async function getTaskPools(): Promise<TaskPool[]> {
 
 // === Task lifecycle ===
 
+async function getTask(taskId: string) {
+  if (isMock) return mockDelay(null);
+  return fetchJSON<any>(`${API_BASE}/v1/tasks/${taskId}`);
+}
+
+async function getTaskResult(taskId: string) {
+  if (isMock) return mockDelay(null);
+  return fetchJSON<any>(`${API_BASE}/v1/tasks/result/${taskId}`);
+}
+
 async function postTask(params: Record<string, unknown>) {
   if (isMock) return mockDelay({ id: `task-${Date.now()}`, ...params, status: "open" });
   return fetchJSON<any>(`${API_BASE}/v1/tasks`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(params) });
@@ -290,7 +300,7 @@ export const api = {
   listSwarms, getSwarm, listAlliances, getLobbyAgents,
   getTaskPools, getLiveFeed, getNetworkStats, getLeaderboard,
   // Task lifecycle
-  postTask, claimTask, submitResult, approveTask, disputeTask,
+  getTask, getTaskResult, postTask, claimTask, submitResult, approveTask, disputeTask,
   // Router & discovery
   registerForRouting, discoverAgents,
   registerService, searchServices,

@@ -168,4 +168,4 @@ export interface NetworkStats {
 }
 
 export type ZoomLevel = 1 | 2 | 3;
-export type Page = "landing" | "map" | "leaderboard" | "tasks" | "swarm";
+export type Page = "landing" | "map" | "leaderboard" | "tasks" | "post-task" | "swarm";
