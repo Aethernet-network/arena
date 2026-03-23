@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { api, isMock } from "../../services/api";
+import { api } from "../../services/api";
 import { useArena } from "../../hooks/useCameraControls";
 import PageContainer from "../Layout/PageContainer";
 
