@@ -19,11 +19,17 @@ export { isMock, isDemoMode, isLive, API_BASE };
 
 // === API Key + Agent ID persistence ===
 
+const ENV_API_KEY = import.meta.env.VITE_AETHERNET_API_KEY || "";
 const API_KEY_STORAGE = "aethernet_api_key";
 const AGENT_ID_STORAGE = "aethernet_agent_id";
 
-function getStoredApiKey(): string | null {
+function getApiKey(): string | null {
+  if (ENV_API_KEY) return ENV_API_KEY;
   try { return localStorage.getItem(API_KEY_STORAGE); } catch { return null; }
+}
+
+function getStoredApiKey(): string | null {
+  return getApiKey();
 }
 function storeApiKey(key: string): void {
   try { localStorage.setItem(API_KEY_STORAGE, key); } catch {}
@@ -50,7 +56,7 @@ async function fetchJSON<T>(url: string, init?: RequestInit): Promise<T> {
 }
 
 function authHeaders(): Record<string, string> {
-  const key = getStoredApiKey();
+  const key = getApiKey();
   const headers: Record<string, string> = { "Content-Type": "application/json" };
   if (key) headers["X-API-Key"] = key;
   return headers;
@@ -60,7 +66,8 @@ function authHeaders(): Record<string, string> {
 
 async function ensureApiKey(): Promise<string | null> {
   if (isMock) return null;
-  const stored = getStoredApiKey();
+  if (ENV_API_KEY) return ENV_API_KEY;
+  const stored = getApiKey();
   if (stored) return stored;
 
   try {
