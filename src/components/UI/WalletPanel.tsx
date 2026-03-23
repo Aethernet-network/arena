@@ -91,11 +91,16 @@ export default function WalletPanel({ agentId, balance, staked, trustLimit: init
     }
 
     // Settlement complete or timeout — refresh wallet once
+    // Small delay to let all nodes converge
+    await new Promise((r) => setTimeout(r, 1000));
     try {
       const [b, s] = await Promise.all([api.getAgentBalance(agentId), api.getAgentStake(agentId)]);
-      if (b.balance != null) onBalanceChange(b.balance);
-      if (s.staked_amount != null) onStakeChange(s.staked_amount);
-      if (s.trust_limit != null) setTrustLimit(s.trust_limit);
+      const newBal = b?.balance ?? b?.amount;
+      const newStake = s?.staked_amount ?? s?.staked ?? s?.amount;
+      const newTrust = s?.trust_limit;
+      if (newBal != null) onBalanceChange(newBal);
+      if (newStake != null) onStakeChange(newStake);
+      if (newTrust != null) setTrustLimit(newTrust);
     } catch {}
 
     setPending(null);

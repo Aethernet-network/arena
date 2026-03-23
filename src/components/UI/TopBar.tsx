@@ -30,11 +30,15 @@ export default function TopBar() {
   const [multiplier, setMultiplier] = useState(2);
 
   function loadWalletData(id: string) {
-    api.getAgentBalance(id).then((b: any) => { if (b.balance != null) setBalance(b.balance); }).catch(() => {});
+    api.getAgentBalance(id).then((b: any) => {
+      const val = b?.balance ?? b?.amount;
+      if (val != null) setBalance(val);
+    }).catch(() => {});
     api.getAgentStake(id).then((s: any) => {
-      if (s.staked_amount != null) setStaked(s.staked_amount);
-      if (s.trust_limit != null) setTrustLimit(s.trust_limit);
-      if (s.trust_multiplier != null) setMultiplier(s.trust_multiplier);
+      const st = s?.staked_amount ?? s?.staked ?? s?.amount;
+      if (st != null) setStaked(st);
+      if (s?.trust_limit != null) setTrustLimit(s.trust_limit);
+      if (s?.trust_multiplier != null) setMultiplier(s.trust_multiplier);
     }).catch(() => {});
   }
 
