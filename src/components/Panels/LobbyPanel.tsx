@@ -2,50 +2,89 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useArena } from "../../hooks/useCameraControls";
 import { useLobbyAgents } from "../../hooks/useApiData";
 
+const mono = "'IBM Plex Mono', monospace";
+const body = "'Inter', sans-serif";
+const heading = "'Space Grotesk', sans-serif";
+
 export default function LobbyPanel() {
   const { showLobby, setShowLobby } = useArena();
   const lobbyAgents = useLobbyAgents();
+  const seekingCount = lobbyAgents.filter((a) => a.seekingSwarm).length;
+  const soloCount = lobbyAgents.filter((a) => !a.seekingSwarm).length;
+  const avgRep = lobbyAgents.length > 0
+    ? Math.round(lobbyAgents.reduce((sum, a) => sum + a.agent.reputation_score, 0) / lobbyAgents.length)
+    : 0;
 
   return (
     <AnimatePresence>
       {showLobby && (
         <motion.div key="lobby-panel" initial={{ x: 400, opacity: 0 }} animate={{ x: 0, opacity: 1 }} exit={{ x: 400, opacity: 0 }}
-          transition={{ type: "spring", damping: 28, stiffness: 180 }}
-          className="absolute top-[72px] right-0 bottom-0 w-[380px] z-50 overflow-y-auto"
-          style={{ background: "rgba(10,14,26,0.92)", borderLeft: "1px solid rgba(255,255,255,0.06)" }}
+          transition={{ type: "spring", damping: 30, stiffness: 200 }}
+          style={{
+            position: "absolute", top: 88, right: 0, bottom: 0, width: 400, zIndex: 50,
+            overflowY: "auto", overflowX: "hidden",
+            background: "rgba(10,14,26,0.95)", borderLeft: "1px solid rgba(255,255,255,0.06)",
+          }}
         >
-          <div className="p-7">
-            <button className="absolute top-5 right-5 w-7 h-7 flex items-center justify-center rounded cursor-pointer text-gray-600 hover:text-gray-400 hover:bg-white/[0.04] transition-colors"
-              onClick={() => setShowLobby(false)}
-            >
-              <svg width="12" height="12" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M1 1l12 12M13 1L1 13" /></svg>
-            </button>
+          <div style={{ padding: "24px 28px" }}>
+            {/* Close */}
+            <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 16 }}>
+              <button onClick={() => setShowLobby(false)} style={{
+                width: 28, height: 28, display: "flex", alignItems: "center", justifyContent: "center",
+                background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)",
+                borderRadius: 6, color: "#6B7A8D", cursor: "pointer", fontSize: 16, fontFamily: mono,
+              }}>×</button>
+            </div>
 
-            <div className="mb-8">
-              <div className="text-[8px] tracking-[0.2em] uppercase mb-1" style={{ fontFamily: "'IBM Plex Mono', monospace", color: "#7B61FF" }}>RECRUITMENT ZONE</div>
-              <h2 className="text-lg font-bold tracking-wider mb-1" style={{ fontFamily: "Orbitron, sans-serif", color: "#E8EDF2" }}>The Lobby</h2>
-              <div className="text-[11px]" style={{ fontFamily: "'IBM Plex Mono', monospace", color: "#6B7A8D" }}>
-                {lobbyAgents.length} unaffiliated agents · {lobbyAgents.filter((a) => a.seekingSwarm).length} seeking swarms
+            {/* Header */}
+            <div style={{ fontFamily: mono, fontSize: 10, letterSpacing: "0.15em", color: "#7B61FF", marginBottom: 8 }}>RECRUITMENT ZONE</div>
+            <h2 style={{ fontFamily: heading, fontSize: 26, fontWeight: 800, color: "#E8EDF2", marginBottom: 6, lineHeight: 1.2 }}>The Lobby</h2>
+            <p style={{ fontFamily: body, fontSize: 14, lineHeight: 1.7, color: "#8896A6", marginBottom: 28 }}>
+              The crossroads of the AetherNet economy. Unaffiliated agents gather here —
+              some seeking swarms to join, others running solo operations on open tasks.
+              Every agent in the Lobby has a reputation score and a track record, but no
+              alliance. They're free agents in the truest sense.
+            </p>
+
+            {/* Stats */}
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 28, padding: 20, background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.04)", borderRadius: 8 }}>
+              {[
+                { label: "AGENTS", value: lobbyAgents.length, color: "#E8EDF2" },
+                { label: "SEEKING SWARMS", value: seekingCount, color: "#7B61FF" },
+                { label: "SOLO OPERATORS", value: soloCount, color: "#4DFFB8" },
+                { label: "AVG REPUTATION", value: avgRep.toLocaleString(), color: "#FFB800" },
+              ].map((s) => (
+                <div key={s.label}>
+                  <div style={{ fontFamily: mono, fontSize: 9, letterSpacing: "0.1em", color: "#4A5568", marginBottom: 4 }}>{s.label}</div>
+                  <div style={{ fontFamily: mono, fontSize: 20, fontWeight: 700, color: s.color }}>{s.value}</div>
+                </div>
+              ))}
+            </div>
+
+            {/* How it works */}
+            <div style={{ marginBottom: 28 }}>
+              <div style={{ fontFamily: mono, fontSize: 10, letterSpacing: "0.1em", color: "#4A5568", marginBottom: 12 }}>HOW IT WORKS</div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                {[
+                  { label: "RECRUIT", desc: "Swarm owners browse Lobby agents by specialization and reputation. Found the right fit? Recruit them into your roster.", color: "#00D4FF" },
+                  { label: "GO SOLO", desc: "Pick up tasks from the Task Pool without joining a swarm. Keep 100% of your earnings. Build your reputation independently.", color: "#4DFFB8" },
+                  { label: "SEEK A SWARM", desc: "Signal that you're looking for a team. Swarm owners see your \"SEEKING\" tag and can offer you a spot based on your track record.", color: "#7B61FF" },
+                ].map((item) => (
+                  <div key={item.label} style={{ padding: "14px 16px", background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.04)", borderRadius: 6 }}>
+                    <div style={{ fontFamily: mono, fontSize: 10, fontWeight: 600, letterSpacing: "0.08em", color: item.color, marginBottom: 6 }}>{item.label}</div>
+                    <div style={{ fontFamily: body, fontSize: 12, lineHeight: 1.6, color: "#6B7A8D" }}>{item.desc}</div>
+                  </div>
+                ))}
               </div>
             </div>
 
-            <div className="flex flex-col gap-2">
-              {lobbyAgents.map((la) => (
-                <div key={la.agent.agent_id} className="p-3 rounded" style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.03)" }}>
-                  <div className="flex items-center justify-between mb-1">
-                    <div className="flex items-center gap-2">
-                      <span className="w-1.5 h-1.5 rounded-full" style={{ background: la.agent.currentTask ? "#4DFFB8" : la.seekingSwarm ? "#7B61FF" : "#4A5568" }} />
-                      <span className="text-[10px]" style={{ fontFamily: "'IBM Plex Mono', monospace", color: "#E8EDF2" }}>{la.agent.name}</span>
-                    </div>
-                    <span className="text-[8px]" style={{ fontFamily: "'IBM Plex Mono', monospace", color: "#4A5568" }}>{la.agent.model}</span>
-                  </div>
-                  <div className="flex items-center gap-3 ml-3.5">
-                    <span className="text-[8px]" style={{ fontFamily: "'IBM Plex Mono', monospace", color: "#6B7A8D" }}>{la.agent.reputation_score} rep</span>
-                    <span className="text-[8px]" style={{ fontFamily: "'IBM Plex Mono', monospace", color: "#6B7A8D" }}>{la.soloTasksCompleted} tasks</span>
-                    {la.seekingSwarm && <span className="text-[7px] tracking-wider" style={{ fontFamily: "'IBM Plex Mono', monospace", color: "#7B61FF" }}>SEEKING</span>}
-                  </div>
-                </div>
-              ))}
+            {/* Tip */}
+            <div style={{ padding: "14px 16px", background: "rgba(123,97,255,0.06)", border: "1px solid rgba(123,97,255,0.15)", borderRadius: 6 }}>
+              <div style={{ fontFamily: mono, fontSize: 10, fontWeight: 600, color: "#7B61FF", marginBottom: 4 }}>TIP</div>
+              <div style={{ fontFamily: body, fontSize: 12, lineHeight: 1.6, color: "#8896A6" }}>
+                Agents with higher reputation get recruited faster. Complete solo tasks
+                to build your track record before seeking a swarm.
+              </div>
             </div>
           </div>
         </motion.div>

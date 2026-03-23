@@ -10,11 +10,10 @@ const tierColors: Record<string, string> = {
 };
 
 export default function SwarmSidebar({ swarms, alliances: _alliances }: { swarms: Swarm[]; alliances: Alliance[] }) {
-  const { flyToSwarm, selectedSwarm, setShowLobby } = useArena();
+  const { flyToSwarm, selectedSwarm, setShowLobby, sidebarOpen, setSidebarOpen } = useArena();
   const [search, setSearch] = useState("");
 
   const sorted = useMemo(() => [...swarms].sort((a, b) => b.reputation - a.reputation), [swarms]);
-
   const filtered = useMemo(() => {
     if (!search.trim()) return sorted;
     const q = search.toLowerCase();
@@ -28,6 +27,29 @@ export default function SwarmSidebar({ swarms, alliances: _alliances }: { swarms
     return s.alliances.length > 0 ? ac[s.alliances[0]] ?? tierColors[s.tier] : tierColors[s.tier];
   }
 
+  // Collapsed state
+  if (!sidebarOpen) {
+    return (
+      <div style={{
+        position: "absolute", top: 88, left: 0, bottom: 0, width: 40, zIndex: 40,
+        background: "rgba(10,14,26,0.9)", borderRight: "1px solid rgba(255,255,255,0.04)",
+        display: "flex", flexDirection: "column", alignItems: "center", paddingTop: 12,
+      }}>
+        <button onClick={() => setSidebarOpen(true)}
+          onMouseEnter={(e) => { e.currentTarget.style.color = "#00D4FF"; }}
+          onMouseLeave={(e) => { e.currentTarget.style.color = "#6B7A8D"; }}
+          style={{
+            width: 28, height: 28, display: "flex", alignItems: "center", justifyContent: "center",
+            background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)",
+            borderRadius: 6, color: "#6B7A8D", cursor: "pointer", fontSize: 14, fontFamily: mono,
+            transition: "color 0.15s",
+          }}
+        >»</button>
+      </div>
+    );
+  }
+
+  // Expanded state
   return (
     <div style={{
       position: "absolute", top: 88, left: 0, bottom: 0, width: 240, zIndex: 40,
@@ -35,11 +57,23 @@ export default function SwarmSidebar({ swarms, alliances: _alliances }: { swarms
       background: "linear-gradient(90deg, rgba(10,14,26,0.95) 0%, rgba(10,14,26,0.5) 100%)",
     }}>
       <div style={{ padding: "16px 12px" }}>
-        <div style={{ fontFamily: mono, fontSize: 10, letterSpacing: "0.1em", color: "#4A5568", marginBottom: 12, paddingLeft: 12 }}>
-          SWARMS · {swarms.length}
+        {/* Header + collapse */}
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", paddingLeft: 12, marginBottom: 12 }}>
+          <div style={{ fontFamily: mono, fontSize: 10, letterSpacing: "0.1em", color: "#4A5568" }}>
+            SWARMS · {swarms.length}
+          </div>
+          <button onClick={() => setSidebarOpen(false)}
+            onMouseEnter={(e) => { e.currentTarget.style.color = "#E8EDF2"; }}
+            onMouseLeave={(e) => { e.currentTarget.style.color = "#4A5568"; }}
+            style={{
+              width: 24, height: 24, display: "flex", alignItems: "center", justifyContent: "center",
+              background: "transparent", border: "none", color: "#4A5568", cursor: "pointer",
+              fontSize: 14, fontFamily: mono, transition: "color 0.15s",
+            }}
+          >«</button>
         </div>
 
-        {/* Lobby — always visible */}
+        {/* Lobby */}
         <div onClick={() => setShowLobby(true)} style={{
           padding: "10px 12px", borderRadius: 6, marginBottom: 8, cursor: "pointer",
           background: "rgba(123,97,255,0.04)", border: "1px solid rgba(123,97,255,0.08)",
@@ -53,8 +87,7 @@ export default function SwarmSidebar({ swarms, alliances: _alliances }: { swarms
 
         {/* Search */}
         <div style={{ padding: "0 4px", marginBottom: 8 }}>
-          <input
-            type="text" placeholder="Search swarms..." value={search}
+          <input type="text" placeholder="Search swarms..." value={search}
             onChange={(e) => setSearch(e.target.value)}
             style={{
               width: "100%", padding: "8px 12px", backgroundColor: "rgba(255,255,255,0.04)",
@@ -66,7 +99,7 @@ export default function SwarmSidebar({ swarms, alliances: _alliances }: { swarms
           />
         </div>
 
-        {/* Filtered swarm list */}
+        {/* List */}
         {filtered.map((s) => {
           const color = getColor(s);
           const isSelected = selectedSwarm === s.id;

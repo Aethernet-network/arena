@@ -366,6 +366,7 @@ export default function AllianceMapViewer() {
   const [showLobby, setShowLobby] = useState(false);
   const [activePage, setActivePage] = useState<Page>("landing");
   const [flyTarget, setFlyTarget] = useState<{ position: THREE.Vector3; lookAt: THREE.Vector3 } | null>(null);
+  const [sidebarOpen, setSidebarOpen] = useState(true);
 
   // Preloader timer — starts when map page becomes active
   const [showMap, setShowMap] = useState(false);
@@ -423,9 +424,9 @@ export default function AllianceMapViewer() {
   }, [goBack, activePage]);
 
   const arenaState: ArenaState = useMemo(() => ({
-    zoomLevel, selectedSwarm, selectedAgent, showLobby, activePage,
-    selectSwarm, selectAgent, setShowLobby, goBack, recenter, flyToSwarm, setActivePage,
-  }), [zoomLevel, selectedSwarm, selectedAgent, showLobby, activePage, selectSwarm, selectAgent, goBack, recenter, flyToSwarm]);
+    zoomLevel, selectedSwarm, selectedAgent, showLobby, activePage, sidebarOpen,
+    selectSwarm, selectAgent, setShowLobby, goBack, recenter, flyToSwarm, setActivePage, setSidebarOpen,
+  }), [zoomLevel, selectedSwarm, selectedAgent, showLobby, activePage, sidebarOpen, selectSwarm, selectAgent, goBack, recenter, flyToSwarm]);
 
   const isMapPage = activePage === "map";
   const isLanding = activePage === "landing";
