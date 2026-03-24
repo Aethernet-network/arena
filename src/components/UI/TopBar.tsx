@@ -49,17 +49,29 @@ export default function TopBar() {
     }).catch(() => {});
   }
 
-  // Load wallet data when wallet connects or on mount
+  // When wallet connects: use wallet agent ID exclusively
+  // When wallet disconnects: clear and fall back to node/stored ID
   useEffect(() => {
     if (isMock) return;
 
     if (isConnected && keypair) {
+      // Wallet connected — use wallet's agent ID, clear old values first
       setAgentId(keypair.agentId);
+      setBalance(0);
+      setStaked(0);
+      setTrustLimit(0);
+      setMultiplier(1);
       loadWalletData(keypair.agentId);
       return;
     }
 
-    // No wallet connected — try stored agent ID or node status
+    // Wallet not connected — clear and load node/stored agent
+    setBalance(0);
+    setStaked(0);
+    setTrustLimit(0);
+    setMultiplier(1);
+    setAgentId("");
+
     initApi().then(() => {
       const id = getActiveAgentId() || getStoredAgentId() || "";
       if (id) {
