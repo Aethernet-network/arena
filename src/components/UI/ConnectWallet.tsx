@@ -11,7 +11,7 @@ const heading = "'Space Grotesk', sans-serif";
 
 type View = "choose" | "create" | "unlock" | "import";
 
-export default function ConnectWallet({ onClose }: { onClose: () => void }) {
+export default function ConnectWallet({ onClose, onFunded }: { onClose: () => void; onFunded?: (agentId: string) => void }) {
   const { connect } = useWallet();
   const [view, setView] = useState<View>("choose");
   const [wallets, setWallets] = useState<StoredWallet[]>([]);
@@ -64,8 +64,8 @@ export default function ConnectWallet({ onClose }: { onClose: () => void }) {
 
       setFundingState("");
 
-      // Signal TopBar to refresh balance
-      window.dispatchEvent(new Event("wallet-funded"));
+      // Refresh TopBar balance
+      onFunded?.(kp.agentId);
 
       // Auto-download backup
       try {

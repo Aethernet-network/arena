@@ -22,7 +22,11 @@ export function useLobbyAgents() {
 
 export function useTaskPools() {
   const [pools, setPools] = useState<TaskPool[]>([]);
-  useEffect(() => { api.getTaskPools().then(setPools); }, []);
+  useEffect(() => {
+    api.getTaskPools().then(setPools);
+    const interval = setInterval(() => api.getTaskPools().then(setPools), 15000);
+    return () => clearInterval(interval);
+  }, []);
   return pools;
 }
 

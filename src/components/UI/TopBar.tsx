@@ -57,13 +57,6 @@ export default function TopBar() {
     setTimeout(() => setRefreshing(false), 800);
   }
 
-  // Listen for wallet-funded event from ConnectWallet
-  useEffect(() => {
-    const handler = () => { if (agentId) loadWalletData(agentId); };
-    window.addEventListener("wallet-funded", handler);
-    return () => window.removeEventListener("wallet-funded", handler);
-  }, [agentId]);
-
   // When wallet connects: use wallet agent ID exclusively
   // When wallet disconnects: clear and fall back to node/stored ID
   useEffect(() => {
@@ -185,7 +178,7 @@ export default function TopBar() {
       )}
 
       <AnimatePresence>
-        {showConnect && <ConnectWallet onClose={() => setShowConnect(false)} />}
+        {showConnect && <ConnectWallet onClose={() => setShowConnect(false)} onFunded={(id) => loadWalletData(id)} />}
       </AnimatePresence>
     </>
   );
