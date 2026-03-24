@@ -38,6 +38,26 @@ function storeAgentId(id: string): void {
   try { localStorage.setItem(AGENT_ID_STORAGE, id); } catch {}
 }
 
+// === Wallet signing integration ===
+
+let _activeSecretKey: Uint8Array | null = null;
+let _activeAgentId = "";
+
+export function setActiveWallet(agentId: string, secretKey: Uint8Array | null) {
+  _activeAgentId = agentId;
+  _activeSecretKey = secretKey;
+  if (agentId) storeAgentId(agentId);
+}
+
+export function clearActiveWallet() {
+  _activeAgentId = "";
+  _activeSecretKey = null;
+}
+
+export function getActiveAgentId(): string {
+  return _activeAgentId || getStoredAgentId() || "";
+}
+
 // === Fetch helpers ===
 
 async function mockDelay<T>(data: T): Promise<T> { return data; }
@@ -57,6 +77,20 @@ function authHeaders(): Record<string, string> {
   const headers: Record<string, string> = { "Content-Type": "application/json" };
   if (key) headers["X-API-Key"] = key;
   return headers;
+}
+
+// Signed fetch — uses Ed25519 wallet signing when connected, falls back to API key
+async function signedFetch<T>(url: string, init: RequestInit & { method: string }): Promise<T> {
+  if (_activeSecretKey && _activeAgentId) {
+    const { signRequest } = await import("../wallet/signer");
+    const path = new URL(url).pathname;
+    const body = typeof init.body === "string" ? init.body : "";
+    const sigHeaders = await signRequest(init.method, path, body, _activeAgentId, _activeSecretKey);
+    const headers = { ...(init.headers as Record<string, string>), ...sigHeaders, "Content-Type": "application/json" };
+    return fetchJSON<T>(url, { ...init, headers });
+  }
+  // No wallet — fall back to API key auth
+  return fetchJSON<T>(url, { ...init, headers: authHeaders() });
 }
 
 // === API Key initialization ===
@@ -122,34 +156,32 @@ async function getAgentStake(agentId: string) {
   return fetchJSON<any>(`${API_BASE}/v1/agents/${agentId}/stake`);
 }
 
-// === Authenticated write endpoints (all use authHeaders) ===
+// === Authenticated write endpoints (wallet signing → API key fallback) ===
 
 async function stakeTokens(agentId: string, amount: number) {
   if (isMock) return mockDelay({ event_id: `stake-${Date.now()}` });
-  return fetchJSON<any>(`${API_BASE}/v1/stake`, {
-    method: "POST", headers: authHeaders(),
-    body: JSON.stringify({ agent_id: agentId, amount }),
+  return signedFetch<any>(`${API_BASE}/v1/stake`, {
+    method: "POST", body: JSON.stringify({ agent_id: agentId, amount }),
   });
 }
 
 async function unstakeTokens(agentId: string, amount: number) {
   if (isMock) return mockDelay({ event_id: `unstake-${Date.now()}` });
-  return fetchJSON<any>(`${API_BASE}/v1/unstake`, {
-    method: "POST", headers: authHeaders(),
-    body: JSON.stringify({ agent_id: agentId, amount }),
+  return signedFetch<any>(`${API_BASE}/v1/unstake`, {
+    method: "POST", body: JSON.stringify({ agent_id: agentId, amount }),
   });
 }
 
 async function requestFaucet(agentId: string) {
   if (isMock) return mockDelay({ event_id: `faucet-${Date.now()}`, amount: 5000000000, agent_id: agentId, message: "mock faucet grant" });
-  return fetchJSON<any>(`${API_BASE}/v1/faucet`, {
-    method: "POST", headers: authHeaders(),
-    body: JSON.stringify({ agent_id: agentId }),
+  return signedFetch<any>(`${API_BASE}/v1/faucet`, {
+    method: "POST", body: JSON.stringify({ agent_id: agentId }),
   });
 }
 
 async function registerAgent(params?: { agent_id?: string; public_key_b64?: string }) {
   if (isMock) return mockDelay({ agent_id: `mock-agent-${Date.now()}`, fingerprint_hash: "mock-hash" });
+  // Registration uses API key auth (no wallet exists yet)
   const res = await fetchJSON<any>(`${API_BASE}/v1/agents`, {
     method: "POST", headers: authHeaders(),
     body: JSON.stringify(params || {}),
@@ -160,9 +192,8 @@ async function registerAgent(params?: { agent_id?: string; public_key_b64?: stri
 
 async function transfer(toAgent: string, amount: number, memo?: string) {
   if (isMock) return mockDelay({ event_id: `transfer-${Date.now()}` });
-  return fetchJSON<any>(`${API_BASE}/v1/transfer`, {
-    method: "POST", headers: authHeaders(),
-    body: JSON.stringify({ to_agent: toAgent, amount, memo: memo || "" }),
+  return signedFetch<any>(`${API_BASE}/v1/transfer`, {
+    method: "POST", body: JSON.stringify({ to_agent: toAgent, amount, memo: memo || "" }),
   });
 }
 
@@ -304,33 +335,33 @@ async function getTaskResult(taskId: string) {
 
 async function postTask(params: Record<string, unknown>) {
   if (isMock) return mockDelay({ id: `task-${Date.now()}`, ...params, status: "open" });
-  return fetchJSON<any>(`${API_BASE}/v1/tasks`, { method: "POST", headers: authHeaders(), body: JSON.stringify(params) });
+  return signedFetch<any>(`${API_BASE}/v1/tasks`, { method: "POST", body: JSON.stringify(params) });
 }
 
 async function claimTask(taskId: string, agentId: string) {
   if (isMock) return mockDelay({});
-  return fetchJSON<any>(`${API_BASE}/v1/tasks/${taskId}/claim`, { method: "POST", headers: authHeaders(), body: JSON.stringify({ agent_id: agentId }) });
+  return signedFetch<any>(`${API_BASE}/v1/tasks/${taskId}/claim`, { method: "POST", body: JSON.stringify({ agent_id: agentId }) });
 }
 
 async function submitResult(taskId: string, result: Record<string, unknown>) {
   if (isMock) return mockDelay({});
-  return fetchJSON<any>(`${API_BASE}/v1/tasks/${taskId}/submit`, { method: "POST", headers: authHeaders(), body: JSON.stringify(result) });
+  return signedFetch<any>(`${API_BASE}/v1/tasks/${taskId}/submit`, { method: "POST", body: JSON.stringify(result) });
 }
 
 async function approveTask(taskId: string) {
   if (isMock) return mockDelay({ id: taskId, status: "completed" });
-  return fetchJSON<any>(`${API_BASE}/v1/tasks/${taskId}/approve`, { method: "POST", headers: authHeaders() });
+  return signedFetch<any>(`${API_BASE}/v1/tasks/${taskId}/approve`, { method: "POST", body: "" });
 }
 
 async function disputeTask(taskId: string) {
   if (isMock) return mockDelay({ id: taskId, status: "disputed" });
-  return fetchJSON<any>(`${API_BASE}/v1/tasks/${taskId}/dispute`, { method: "POST", headers: authHeaders() });
+  return signedFetch<any>(`${API_BASE}/v1/tasks/${taskId}/dispute`, { method: "POST", body: "" });
 }
 
 // Router & discovery (authenticated)
 async function registerForRouting(params: Record<string, unknown>) {
   if (isMock) return mockDelay({});
-  return fetchJSON<any>(`${API_BASE}/v1/router/register`, { method: "POST", headers: authHeaders(), body: JSON.stringify(params) });
+  return signedFetch<any>(`${API_BASE}/v1/router/register`, { method: "POST", body: JSON.stringify(params) });
 }
 
 async function discoverAgents(query: string, category?: string) {
@@ -342,7 +373,7 @@ async function discoverAgents(query: string, category?: string) {
 
 async function registerService(params: Record<string, unknown>) {
   if (isMock) return mockDelay({});
-  return fetchJSON<any>(`${API_BASE}/v1/registry`, { method: "POST", headers: authHeaders(), body: JSON.stringify(params) });
+  return signedFetch<any>(`${API_BASE}/v1/registry`, { method: "POST", body: JSON.stringify(params) });
 }
 
 async function searchServices(query: string, category?: string) {

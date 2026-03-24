@@ -1,5 +1,10 @@
+import { WalletProvider } from "./wallet/context";
 import AllianceMapViewer from "./components/Map/AllianceMapViewer";
 
 export default function App() {
-  return <AllianceMapViewer />;
+  return (
+    <WalletProvider>
+      <AllianceMapViewer />
+    </WalletProvider>
+  );
 }

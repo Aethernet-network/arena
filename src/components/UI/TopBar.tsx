@@ -1,7 +1,10 @@
 import { useState, useEffect } from "react";
+import { AnimatePresence } from "framer-motion";
 import { useArena } from "../../hooks/useCameraControls";
-import { api, isMock, initApi, getStoredAgentId } from "../../services/api";
+import { api, isMock, initApi, getStoredAgentId, getActiveAgentId } from "../../services/api";
+import { useWallet } from "../../wallet/context";
 import WalletPanel from "./WalletPanel";
+import ConnectWallet from "./ConnectWallet";
 import type { Page } from "../../data/types";
 
 const mono = "'IBM Plex Mono', monospace";
@@ -21,13 +24,17 @@ function fmt(uaet: number): string {
 
 export default function TopBar() {
   const { activePage, setActivePage } = useArena();
+  const { keypair, isLocked } = useWallet();
   const [showWallet, setShowWallet] = useState(false);
+  const [showConnect, setShowConnect] = useState(false);
 
   const [agentId, setAgentId] = useState("");
   const [balance, setBalance] = useState(47250000000);
   const [staked, setStaked] = useState(25000000000);
   const [trustLimit, setTrustLimit] = useState(50000000000);
   const [multiplier, setMultiplier] = useState(2);
+
+  const isConnected = !!keypair && !isLocked;
 
   function loadWalletData(id: string) {
     api.getAgentBalance(id).then((b: any) => {
@@ -42,24 +49,31 @@ export default function TopBar() {
     }).catch(() => {});
   }
 
+  // Load wallet data when wallet connects or on mount
   useEffect(() => {
     if (isMock) return;
+
+    if (isConnected && keypair) {
+      setAgentId(keypair.agentId);
+      loadWalletData(keypair.agentId);
+      return;
+    }
+
+    // No wallet connected — try stored agent ID or node status
     initApi().then(() => {
-      // Use stored agent ID if available (from previous registration)
-      const storedId = getStoredAgentId();
-      if (storedId) {
-        setAgentId(storedId);
-        loadWalletData(storedId);
+      const id = getActiveAgentId() || getStoredAgentId() || "";
+      if (id) {
+        setAgentId(id);
+        loadWalletData(id);
       } else {
-        // Fall back to node's agent ID for first visit
         api.getStatus().then((s: any) => {
-          const id = s.agent_id || "";
-          setAgentId(id);
-          if (id) loadWalletData(id);
+          const nodeId = s.agent_id || "";
+          setAgentId(nodeId);
+          if (nodeId) loadWalletData(nodeId);
         }).catch(() => {});
       }
     });
-  }, []);
+  }, [isConnected, keypair?.agentId]);
 
   return (
     <>
@@ -97,14 +111,26 @@ export default function TopBar() {
           </nav>
 
           <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-            <button onClick={() => setShowWallet(!showWallet)} style={{
-              display: "flex", alignItems: "center", gap: 6, padding: "5px 12px",
-              borderRadius: 6, border: "1px solid rgba(255,184,0,0.12)", cursor: "pointer",
-              background: showWallet ? "rgba(255,184,0,0.06)" : "transparent", transition: "all 0.15s",
-            }}>
-              <span style={{ fontFamily: mono, fontSize: 13, fontWeight: 600, color: "#FFB800" }}>△ {fmt(balance + staked)}</span>
-              <span style={{ fontFamily: mono, fontSize: 11, color: "#6B7A8D", fontWeight: 400 }}>AET</span>
-            </button>
+            {/* Wallet button or Connect button */}
+            {isConnected ? (
+              <button onClick={() => setShowWallet(!showWallet)} style={{
+                display: "flex", alignItems: "center", gap: 6, padding: "5px 12px",
+                borderRadius: 6, border: "1px solid rgba(255,184,0,0.12)", cursor: "pointer",
+                background: showWallet ? "rgba(255,184,0,0.06)" : "transparent", transition: "all 0.15s",
+              }}>
+                <span style={{ fontFamily: mono, fontSize: 13, fontWeight: 600, color: "#FFB800" }}>△ {fmt(balance + staked)}</span>
+                <span style={{ fontFamily: mono, fontSize: 11, color: "#6B7A8D", fontWeight: 400 }}>AET</span>
+              </button>
+            ) : (
+              <button onClick={() => setShowConnect(true)} style={{
+                display: "flex", alignItems: "center", gap: 6, padding: "6px 16px",
+                borderRadius: 6, border: "1px solid rgba(0,212,255,0.2)", cursor: "pointer",
+                background: "rgba(0,212,255,0.06)", transition: "all 0.15s",
+              }}>
+                <span style={{ fontFamily: mono, fontSize: 12, fontWeight: 600, color: "#00D4FF" }}>Connect Wallet</span>
+              </button>
+            )}
+
             <span style={{ fontFamily: mono, fontSize: 10, color: "#6B7A8D", letterSpacing: "0.08em" }}>S1·W4</span>
             <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
               <div style={{ width: 7, height: 7, borderRadius: "50%", backgroundColor: "#4DFFB8", boxShadow: "0 0 8px rgba(77,255,184,0.5)" }} />
@@ -114,15 +140,16 @@ export default function TopBar() {
         </div>
       </header>
 
-      {/* Full wallet panel */}
-      {showWallet && (
+      {showWallet && isConnected && (
         <WalletPanel
           agentId={agentId} balance={balance} staked={staked} trustLimit={trustLimit} multiplier={multiplier}
-          onClose={() => setShowWallet(false)}
-          onBalanceChange={setBalance}
-          onStakeChange={setStaked}
+          onClose={() => setShowWallet(false)} onBalanceChange={setBalance} onStakeChange={setStaked}
         />
       )}
+
+      <AnimatePresence>
+        {showConnect && <ConnectWallet onClose={() => setShowConnect(false)} />}
+      </AnimatePresence>
     </>
   );
 }
