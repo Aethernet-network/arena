@@ -31,6 +31,7 @@ export default function TopBar() {
   const [agentId, setAgentId] = useState("");
   const [balance, setBalance] = useState(47250000000);
   const [staked, setStaked] = useState(25000000000);
+  const [refreshing, setRefreshing] = useState(false);
   const [trustLimit, setTrustLimit] = useState(50000000000);
   const [multiplier, setMultiplier] = useState(2);
 
@@ -47,6 +48,13 @@ export default function TopBar() {
       if (s?.trust_limit != null) setTrustLimit(s.trust_limit);
       if (s?.trust_multiplier != null) setMultiplier(s.trust_multiplier);
     }).catch(() => {});
+  }
+
+  async function handleRefresh() {
+    if (refreshing || !agentId) return;
+    setRefreshing(true);
+    loadWalletData(agentId);
+    setTimeout(() => setRefreshing(false), 800);
   }
 
   // When wallet connects: use wallet agent ID exclusively
@@ -125,14 +133,24 @@ export default function TopBar() {
           <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
             {/* Wallet button or Connect button */}
             {isConnected ? (
-              <button onClick={() => setShowWallet(!showWallet)} style={{
-                display: "flex", alignItems: "center", gap: 6, padding: "5px 12px",
-                borderRadius: 6, border: "1px solid rgba(255,184,0,0.12)", cursor: "pointer",
-                background: showWallet ? "rgba(255,184,0,0.06)" : "transparent", transition: "all 0.15s",
-              }}>
-                <span style={{ fontFamily: mono, fontSize: 13, fontWeight: 600, color: "#FFB800" }}>△ {fmt(balance + staked)}</span>
-                <span style={{ fontFamily: mono, fontSize: 11, color: "#6B7A8D", fontWeight: 400 }}>AET</span>
-              </button>
+              <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                <button onClick={() => setShowWallet(!showWallet)} style={{
+                  display: "flex", alignItems: "center", gap: 6, padding: "5px 12px",
+                  borderRadius: 6, border: "1px solid rgba(255,184,0,0.12)", cursor: "pointer",
+                  background: showWallet ? "rgba(255,184,0,0.06)" : "transparent", transition: "all 0.15s",
+                }}>
+                  <span style={{ fontFamily: mono, fontSize: 13, fontWeight: 600, color: "#FFB800" }}>△ {fmt(balance + staked)}</span>
+                  <span style={{ fontFamily: mono, fontSize: 11, color: "#6B7A8D", fontWeight: 400 }}>AET</span>
+                </button>
+                <button onClick={handleRefresh} disabled={refreshing} title="Refresh balance" style={{
+                  width: 24, height: 24, display: "flex", alignItems: "center", justifyContent: "center",
+                  background: "none", border: "none", cursor: refreshing ? "default" : "pointer", padding: 0,
+                }}>
+                  <svg width="12" height="12" viewBox="0 0 16 16" fill="none" style={{ animation: refreshing ? "walletSpin 0.8s linear infinite" : "none" }}>
+                    <path d="M13.5 8a5.5 5.5 0 1 1-1.3-3.5M13.5 2v2.5H11" stroke={refreshing ? "#00D4FF" : "#4A5568"} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                </button>
+              </div>
             ) : (
               <button onClick={() => setShowConnect(true)} style={{
                 display: "flex", alignItems: "center", gap: 6, padding: "6px 16px",

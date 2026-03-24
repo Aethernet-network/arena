@@ -71,8 +71,24 @@ export default function WalletPanel({ agentId, balance, staked, trustLimit: init
   const [history, setHistory] = useState<any[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
 
+  const [refreshing, setRefreshing] = useState(false);
+
   const available = balance;
   const totalBalance = balance + staked;
+
+  async function handleRefresh() {
+    if (refreshing || !agentId) return;
+    setRefreshing(true);
+    try {
+      const [b, s] = await Promise.all([api.getAgentBalance(agentId), api.getAgentStake(agentId)]);
+      const newBal = b?.balance ?? b?.amount;
+      const newStake = s?.staked_amount ?? s?.staked ?? s?.amount;
+      if (newBal != null) onBalanceChange(newBal);
+      if (newStake != null) onStakeChange(newStake);
+      if (s?.trust_limit != null) setTrustLimit(s.trust_limit);
+    } catch {}
+    setRefreshing(false);
+  }
 
   const showMsg = (text: string, color = "#4DFFB8") => { setMsg(text); setMsgColor(color); setTimeout(() => setMsg(""), 8000); };
 
@@ -206,7 +222,10 @@ export default function WalletPanel({ agentId, balance, staked, trustLimit: init
       background: "rgba(8,10,18,0.97)", borderLeft: "1px solid rgba(255,255,255,0.06)",
       backdropFilter: "blur(20px)", overflowY: "auto", overflowX: "hidden",
     }}>
-      <style>{`@keyframes walletPulse { 0%, 100% { opacity: 0.4; } 50% { opacity: 1; } }`}</style>
+      <style>{`
+        @keyframes walletPulse { 0%, 100% { opacity: 0.4; } 50% { opacity: 1; } }
+        @keyframes walletSpin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+      `}</style>
       <div style={{ padding: "24px 28px" }}>
         {/* Header */}
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
@@ -224,7 +243,14 @@ export default function WalletPanel({ agentId, balance, staked, trustLimit: init
 
         {/* Balance headline */}
         <div style={{ marginBottom: 24, opacity: dimmed, transition: "opacity 0.3s" }}>
-          <div style={{ fontFamily: mono, fontSize: 9, letterSpacing: "0.1em", color: "#4A5568", marginBottom: 4, textTransform: "uppercase" }}>Total Balance</div>
+          <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
+            <span style={{ fontFamily: mono, fontSize: 9, letterSpacing: "0.1em", color: "#4A5568", textTransform: "uppercase" }}>Total Balance</span>
+            <button onClick={handleRefresh} disabled={refreshing} style={{ width: 16, height: 16, display: "flex", alignItems: "center", justifyContent: "center", background: "none", border: "none", cursor: refreshing ? "default" : "pointer", padding: 0 }}>
+              <svg width="12" height="12" viewBox="0 0 16 16" fill="none" style={{ animation: refreshing ? "walletSpin 0.8s linear infinite" : "none" }}>
+                <path d="M13.5 8a5.5 5.5 0 1 1-1.3-3.5M13.5 2v2.5H11" stroke={refreshing ? "#00D4FF" : "#4A5568"} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            </button>
+          </div>
           <div style={{ fontFamily: mono, fontSize: 28, fontWeight: 700, color: "#FFB800" }}>{fmtAET(totalBalance)} <span style={{ fontSize: 14, color: "#6B7A8D" }}>AET</span></div>
         </div>
 
