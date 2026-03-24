@@ -300,20 +300,32 @@ async function getLiveFeed(): Promise<FeedEvent[]> {
 async function getTaskPools(): Promise<TaskPool[]> {
   if (isMock) return mockDelay(mockTaskPools);
   try {
-    const tasks = await fetchJSON<any[]>(`${API_BASE}/v1/tasks?limit=50`);
+    const raw = await fetchJSON<any>(`${API_BASE}/v1/tasks?limit=50`);
+    console.log("raw tasks response:", raw);
+
+    // Handle both array and {tasks: [...]} response shapes
+    const tasks = Array.isArray(raw) ? raw : (raw.tasks || raw.data || []);
+
     const mapped: TaskPool[] = tasks.map((t: any) => ({
-      id: t.id, name: t.title || `Task ${(t.id || "").slice(0, 8)}`,
-      description: t.description || "", category: t.category || "general",
+      id: t.id || "",
+      name: t.title || `Task ${(t.id || "").slice(0, 8)}`,
+      description: t.description || "",
+      category: t.category || "general",
       bounty: (t.budget || 0) / 1_000_000,
       assuranceTier: (t.assurance_lane as TaskPool["assuranceTier"]) || "Standard",
-      assuranceFee: t.assurance_fee ? Math.round(t.assurance_fee / (t.budget || 1) * 100) : 3,
+      assuranceFee: t.assurance_fee ? Math.round(t.assurance_fee / (t.budget || 1) * 100) : 0,
       deadline: t.status === "completed" ? "Completed" : "Open",
-      status: t.status || "open", assignedSwarm: t.claimer_id || undefined,
-      acceptanceContract: (t.contract?.success_criteria || []).join("; ") || "Standard acceptance",
+      status: t.status || "open",
+      assignedSwarm: t.claimer_id || undefined,
+      acceptanceContract: t.contract?.success_criteria?.join(", ") || "Standard acceptance",
     }));
+
     if (isDemoMode) return [...mapped, ...mockTaskPools];
-    return mapped;
-  } catch { return mockTaskPools; }
+    return mapped.length > 0 ? mapped : (isDemoMode ? mockTaskPools : []);
+  } catch (e) {
+    console.warn("getTaskPools error:", e);
+    return isDemoMode ? mockTaskPools : [];
+  }
 }
 
 // === Task lifecycle (all authenticated) ===

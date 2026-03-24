@@ -22,6 +22,7 @@ export default function ConnectWallet({ onClose }: { onClose: () => void }) {
   const [name, setName] = useState("");
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
+  const [fundingState, setFundingState] = useState("");
 
   // Unlock state
   const [selectedWallet, setSelectedWallet] = useState<StoredWallet | null>(null);
@@ -42,13 +43,42 @@ export default function ConnectWallet({ onClose }: { onClose: () => void }) {
       // Register on protocol — hard error if this fails
       const regParams = { agent_id: kp.agentId, public_key_b64: publicKeyToBase64(kp.publicKey) };
       console.log("registerAgent params:", regParams);
-      await api.registerAgent(regParams);
+      const regResult = await api.registerAgent(regParams);
 
       // Activate wallet BEFORE faucet so signedFetch works
       connect(kp, name.trim());
+      setLoading(false);
+
+      // Wait for onboarding grant settlement
+      if (regResult.grant_event_id) {
+        setFundingState("Funding your wallet (50,000 AET)...");
+        for (let i = 0; i < 20; i++) {
+          await new Promise((r) => setTimeout(r, 3000));
+          try {
+            const ev = await api.getEvent(regResult.grant_event_id);
+            if (ev.settlement_state === "Settled" || ev.settlement_state === "Adjusted") break;
+          } catch {}
+        }
+        await new Promise((r) => setTimeout(r, 2000));
+      }
 
       // Request faucet (now uses wallet signing)
-      try { await api.requestFaucet(kp.agentId); } catch (e: any) { console.warn("Faucet:", e.message); }
+      try {
+        const faucetResult = await api.requestFaucet(kp.agentId);
+        if (faucetResult.event_id) {
+          setFundingState("Faucet grant settling...");
+          for (let i = 0; i < 10; i++) {
+            await new Promise((r) => setTimeout(r, 3000));
+            try {
+              const ev = await api.getEvent(faucetResult.event_id);
+              if (ev.settlement_state === "Settled") break;
+            } catch {}
+          }
+          await new Promise((r) => setTimeout(r, 2000));
+        }
+      } catch (e: any) { console.warn("Faucet:", e.message); }
+
+      setFundingState("");
 
       // Auto-download backup
       try {
@@ -145,7 +175,19 @@ export default function ConnectWallet({ onClose }: { onClose: () => void }) {
           )}
 
           {/* Create */}
-          {view === "create" && (
+          {/* Funding in progress */}
+          {fundingState && (
+            <motion.div key="funding" initial={{ opacity: 0 }} animate={{ opacity: 1 }} style={{ textAlign: "center", padding: "20px 0" }}>
+              <div style={{ width: 48, height: 48, margin: "0 auto 20px", borderRadius: "50%", background: "rgba(255,184,0,0.08)", border: "1px solid rgba(255,184,0,0.2)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <div style={{ width: 10, height: 10, borderRadius: "50%", background: "#FFB800", animation: "walletPulse 1.5s ease-in-out infinite" }} />
+              </div>
+              <div style={{ fontFamily: mono, fontSize: 13, color: "#FFB800", marginBottom: 8 }}>{fundingState}</div>
+              <div style={{ fontFamily: mono, fontSize: 10, color: "#4A5568" }}>Settling through consensus...</div>
+              <style>{`@keyframes walletPulse { 0%, 100% { opacity: 0.4; } 50% { opacity: 1; } }`}</style>
+            </motion.div>
+          )}
+
+          {view === "create" && !fundingState && (
             <motion.div key="create" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0 }}>
               <button onClick={() => setView("choose")} style={{ fontFamily: mono, fontSize: 10, color: "rgba(255,255,255,0.2)", background: "none", border: "none", cursor: "pointer", marginBottom: 16 }}>← Back</button>
               <h3 style={{ fontFamily: heading, fontSize: 22, fontWeight: 600, color: "#fff", marginBottom: 8 }}>Create Wallet</h3>

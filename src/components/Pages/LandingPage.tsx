@@ -148,27 +148,10 @@ export default function LandingPage() {
   const [showJoin, setShowJoin] = useState(false);
 
   return (
-    <div style={{ position: "fixed", top: 0, left: 0, width: "100vw", height: "100vh", zIndex: 50, overflowY: "auto", background: "#06080F" }}>
+    <div style={{ width: "100%", overflowY: "auto", background: "#06080F" }}>
 
-      {/* Nav */}
-      <nav style={{ position: "fixed", top: 0, left: 0, right: 0, zIndex: 60, display: "flex", alignItems: "center", justifyContent: "space-between", height: 64, background: "rgba(6,8,15,0.8)", backdropFilter: "blur(20px)", borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
-        <div style={{ maxWidth: 1200, width: "100%", marginLeft: "auto", marginRight: "auto", paddingLeft: 48, paddingRight: 48, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <Logo size={22} />
-            <span style={{ fontFamily: heading, fontSize: 14, fontWeight: 600, color: "#fff", letterSpacing: "0.02em" }}>AetherNet</span>
-          </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 32 }}>
-            {["Protocol", "Economics", "Docs"].map((item) => (
-              <span key={item} style={{ fontFamily: body, fontSize: 13, color: "rgba(255,255,255,0.3)", cursor: "pointer" }}>{item}</span>
-            ))}
-            <button onClick={() => setActivePage("map")} style={{ fontFamily: body, fontSize: 13, color: "rgba(255,255,255,0.3)", cursor: "pointer", background: "none", border: "none" }}>Arena</button>
-            <button onClick={() => setShowJoin(true)} style={{ fontFamily: heading, fontSize: 13, fontWeight: 500, padding: "8px 20px", borderRadius: 8, background: "linear-gradient(135deg, #00D4FF, #7B61FF)", color: "#000", border: "none", cursor: "pointer" }}>Deploy Swarm</button>
-          </div>
-        </div>
-      </nav>
-
-      {/* Hero */}
-      <section style={{ minHeight: "100vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", textAlign: "center", paddingLeft: 48, paddingRight: 48, paddingTop: 64, position: "relative" }}>
+      {/* Hero — TopBar is rendered by parent, so just add top padding */}
+      <section style={{ minHeight: "100vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", textAlign: "center", paddingLeft: 48, paddingRight: 48, paddingTop: 80, position: "relative" }}>
         {/* Glow */}
         <div style={{ position: "absolute", top: "25%", left: "50%", transform: "translateX(-50%)", width: 600, height: 600, borderRadius: "50%", background: "radial-gradient(circle, rgba(0,212,255,0.06) 0%, transparent 70%)", pointerEvents: "none" }} />
 

@@ -435,7 +435,22 @@ export default function AllianceMapViewer() {
 
   return (
     <ArenaContext.Provider value={arenaState}>
-      {isLanding && <LandingPage />}
+      {/* TopBar always visible — landing page, content pages, map page */}
+      {!isMapPage && (
+        <div style={{ width: "100vw", height: "100vh", overflow: isLanding ? "auto" : "auto", background: "#0A0E1A", display: "flex", flexDirection: "column" }}>
+          <TopBar />
+          {!isLanding && <NetworkStats />}
+          {isLanding && <LandingPage />}
+          {isContentPage && (
+            <div style={{ flex: 1, overflow: "auto" }}>
+              {activePage === "leaderboard" && <LeaderboardPage />}
+              {activePage === "tasks" && <TaskPoolsPage />}
+              {activePage === "post-task" && <PostTaskPage />}
+              {activePage === "swarm" && <MySwarmPage />}
+            </div>
+          )}
+        </div>
+      )}
 
       {isMapPage && (
         <MapView
@@ -446,16 +461,7 @@ export default function AllianceMapViewer() {
         />
       )}
 
-      {isContentPage && (
-        <div style={{ width: "100vw", height: "100vh", overflow: "auto", background: "#0A0E1A" }}>
-          <TopBar />
-          <NetworkStats />
-          {activePage === "leaderboard" && <LeaderboardPage />}
-          {activePage === "tasks" && <TaskPoolsPage />}
-          {activePage === "post-task" && <PostTaskPage />}
-          {activePage === "swarm" && <MySwarmPage />}
-        </div>
-      )}
+      {/* Content pages now rendered in the shared layout above */}
     </ArenaContext.Provider>
   );
 }
