@@ -62,23 +62,10 @@ export default function ConnectWallet({ onClose }: { onClose: () => void }) {
         await new Promise((r) => setTimeout(r, 2000));
       }
 
-      // Request faucet (now uses wallet signing)
-      try {
-        const faucetResult = await api.requestFaucet(kp.agentId);
-        if (faucetResult.event_id) {
-          setFundingState("Faucet grant settling...");
-          for (let i = 0; i < 10; i++) {
-            await new Promise((r) => setTimeout(r, 3000));
-            try {
-              const ev = await api.getEvent(faucetResult.event_id);
-              if (ev.settlement_state === "Settled") break;
-            } catch {}
-          }
-          await new Promise((r) => setTimeout(r, 2000));
-        }
-      } catch (e: any) { console.warn("Faucet:", e.message); }
-
       setFundingState("");
+
+      // Signal TopBar to refresh balance
+      window.dispatchEvent(new Event("wallet-funded"));
 
       // Auto-download backup
       try {
