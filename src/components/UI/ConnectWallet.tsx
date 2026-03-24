@@ -39,15 +39,16 @@ export default function ConnectWallet({ onClose }: { onClose: () => void }) {
       const kp = await generateKeypair();
       await saveWallet(kp.agentId, kp.agentId, kp.secretKey, password, name.trim());
 
-      // Register on protocol
-      try {
-        await api.registerAgent({ agent_id: kp.agentId, public_key_b64: publicKeyToBase64(kp.publicKey) });
-      } catch (e: any) {
-        console.warn("Agent registration:", e.message);
-      }
+      // Register on protocol — hard error if this fails
+      const regParams = { agent_id: kp.agentId, public_key_b64: publicKeyToBase64(kp.publicKey) };
+      console.log("registerAgent params:", regParams);
+      await api.registerAgent(regParams);
 
-      // Request faucet
-      try { await api.requestFaucet(kp.agentId); } catch {}
+      // Activate wallet BEFORE faucet so signedFetch works
+      connect(kp, name.trim());
+
+      // Request faucet (now uses wallet signing)
+      try { await api.requestFaucet(kp.agentId); } catch (e: any) { console.warn("Faucet:", e.message); }
 
       // Auto-download backup
       try {
@@ -59,7 +60,6 @@ export default function ConnectWallet({ onClose }: { onClose: () => void }) {
         a.click(); URL.revokeObjectURL(url);
       } catch {}
 
-      connect(kp, name.trim());
       onClose();
     } catch (e: any) { setError(e.message || "Failed to create wallet"); }
     setLoading(false);
