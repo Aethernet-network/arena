@@ -10,12 +10,14 @@ import type { Page } from "../../data/types";
 const mono = "'IBM Plex Mono', monospace";
 const heading = "'Space Grotesk', sans-serif";
 
-const navItems: { id: Page; label: string }[] = [
+interface NavItem { id: Page | "docs"; label: string; external?: string }
+const navItems: NavItem[] = [
   { id: "map", label: "Map" },
-  { id: "leaderboard", label: "Leaderboard" },
   { id: "tasks", label: "Tasks" },
   { id: "post-task", label: "Post Task" },
+  { id: "leaderboard", label: "Leaderboard" },
   { id: "swarm", label: "My Swarm" },
+  { id: "docs", label: "Docs", external: "https://github.com/Aethernet-network/aethernet/blob/main/docs/quickstart.md" },
 ];
 
 function fmt(uaet: number): string {
@@ -36,6 +38,8 @@ export default function TopBar() {
   const [multiplier, setMultiplier] = useState(2);
 
   const isConnected = !!keypair && !isLocked;
+  const [networkPeers, setNetworkPeers] = useState(0);
+  const [networkAgents, setNetworkAgents] = useState(0);
 
   function loadWalletData(id: string) {
     api.getAgentBalance(id).then((b: any) => {
@@ -56,6 +60,23 @@ export default function TopBar() {
     loadWalletData(agentId);
     setTimeout(() => setRefreshing(false), 800);
   }
+
+  // Safety net: refresh wallet data when connect modal closes
+  useEffect(() => {
+    if (!showConnect && agentId) {
+      const timer = setTimeout(() => loadWalletData(agentId), 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [showConnect, agentId]);
+
+  // Fetch network status
+  useEffect(() => {
+    if (isMock) return;
+    api.getStatus().then((s: any) => {
+      if (s.peers != null) setNetworkPeers(s.peers);
+    }).catch(() => {});
+    api.getAgents().then((a: any[]) => setNetworkAgents(a.length)).catch(() => {});
+  }, []);
 
   // When wallet connects: use wallet agent ID exclusively
   // When wallet disconnects: clear and fall back to node/stored ID
@@ -119,13 +140,16 @@ export default function TopBar() {
             {navItems.map((tab) => {
               const isActive = activePage === tab.id;
               return (
-                <button key={tab.id} onClick={() => setActivePage(tab.id)} style={{
+                <button key={tab.id} onClick={() => {
+                  if (tab.external) { window.open(tab.external, "_blank"); return; }
+                  setActivePage(tab.id as Page);
+                }} style={{
                   fontFamily: mono, fontSize: 12, fontWeight: isActive ? 600 : 400,
                   letterSpacing: "0.05em", color: isActive ? "#00D4FF" : "#6B7A8D",
                   backgroundColor: isActive ? "rgba(0,212,255,0.08)" : "transparent",
                   border: `1px solid ${isActive ? "rgba(0,212,255,0.2)" : "transparent"}`,
                   padding: "6px 16px", borderRadius: 6, cursor: "pointer", transition: "all 0.15s ease",
-                }}>{tab.label}</button>
+                }}>{tab.label}{tab.external ? " ↗" : ""}</button>
               );
             })}
           </nav>
@@ -161,10 +185,10 @@ export default function TopBar() {
               </button>
             )}
 
-            <span style={{ fontFamily: mono, fontSize: 10, color: "#6B7A8D", letterSpacing: "0.08em" }}>S1·W4</span>
             <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
-              <div style={{ width: 7, height: 7, borderRadius: "50%", backgroundColor: "#4DFFB8", boxShadow: "0 0 8px rgba(77,255,184,0.5)" }} />
-              <span style={{ fontFamily: mono, fontSize: 10, fontWeight: 600, color: "#4DFFB8" }}>LIVE</span>
+              <div style={{ width: 6, height: 6, borderRadius: "50%", backgroundColor: "#4DFFB8", boxShadow: "0 0 6px rgba(77,255,184,0.4)" }} />
+              <span style={{ fontFamily: mono, fontSize: 9, fontWeight: 600, color: "#4DFFB8" }}>TESTNET</span>
+              {networkPeers > 0 && <span style={{ fontFamily: mono, fontSize: 9, color: "#4A5568" }}>{networkPeers}p · {networkAgents}a</span>}
             </div>
           </div>
         </div>

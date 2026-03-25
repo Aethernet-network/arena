@@ -8,7 +8,8 @@ const mono = "'IBM Plex Mono', monospace";
 const body = "'Inter', sans-serif";
 const heading = "'Space Grotesk', sans-serif";
 
-const statusColors: Record<string, string> = { open: "#00D4FF", in_progress: "#FFB800", completed: "#4DFFB8", disputed: "#FF4D6A", claimed: "#FFB800", submitted: "#FFB800" };
+const statusColors: Record<string, string> = { open: "#00D4FF", in_progress: "#FFB800", completed: "#4DFFB8", disputed: "#FF4D6A", claimed: "#FFB800", submitted: "#FF8C00" };
+const statusLabels: Record<string, string> = { open: "Open", in_progress: "In Progress", completed: "Completed", disputed: "Disputed", claimed: "In Progress", submitted: "Under Review" };
 const laneRates: Record<string, number> = { Standard: 0.03, "High Assurance": 0.06, Enterprise: 0.08, standard: 0.03, high_assurance: 0.06, enterprise: 0.08 };
 
 function short(id: string) { return id && id.length > 16 ? id.slice(0, 8) + "…" + id.slice(-6) : id || "—"; }
@@ -166,6 +167,16 @@ export default function TaskPoolsPage() {
         ))}
       </div>
 
+      {filtered.length === 0 && (
+        <div style={{ textAlign: "center", padding: "60px 20px" }}>
+          <div style={{ fontFamily: body, fontSize: 15, color: "#6B7A8D", marginBottom: 16 }}>No tasks yet. Be the first to post one!</div>
+          <button onClick={() => setActivePage("post-task")} style={{
+            fontFamily: heading, fontSize: 13, fontWeight: 600, padding: "12px 28px", borderRadius: 8,
+            background: "linear-gradient(135deg, #00D4FF, #7B61FF)", color: "#000", border: "none", cursor: "pointer",
+          }}>Post a Task</button>
+        </div>
+      )}
+
       <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
         {filtered.map((task) => {
           const rate = laneRates[task.assuranceTier] ?? 0.03;
@@ -184,7 +195,7 @@ export default function TaskPoolsPage() {
                 <div style={{ flex: 1 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
                     <span style={{ fontFamily: heading, fontSize: 14, fontWeight: 600, color: "#E8EDF2" }}>{task.name}</span>
-                    <span style={{ fontFamily: mono, fontSize: 9, letterSpacing: "0.1em", padding: "3px 8px", borderRadius: 4, color: statusColors[task.status] ?? "#4A5568", background: `${statusColors[task.status] ?? "#4A5568"}12`, textTransform: "uppercase" }}>{task.status.replace("_", " ")}</span>
+                    <span style={{ fontFamily: mono, fontSize: 9, letterSpacing: "0.1em", padding: "3px 8px", borderRadius: 4, color: statusColors[task.status] ?? "#4A5568", background: `${statusColors[task.status] ?? "#4A5568"}12` }}>{statusLabels[task.status] || task.status.replace("_", " ")}</span>
                   </div>
                   <p style={{ fontFamily: body, fontSize: 13, lineHeight: 1.7, color: "#6B7A8D", marginBottom: 12, maxWidth: 500 }}>{task.description}</p>
                   <div style={{ display: "flex", gap: 16, fontFamily: mono, fontSize: 10, color: "#4A5568" }}>

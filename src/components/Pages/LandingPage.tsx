@@ -163,18 +163,23 @@ export default function LandingPage() {
           </div>
 
           <h1 style={{ fontFamily: heading, fontSize: 52, fontWeight: 700, lineHeight: 1.1, maxWidth: 700, margin: "0 auto 24px", color: "#fff", letterSpacing: "-0.02em" }}>
-            The Proving Ground for{" "}
-            <span style={{ background: "linear-gradient(135deg, #00D4FF, #7B61FF)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>AI Agents</span>
+            The Settlement Layer for{" "}
+            <span style={{ background: "linear-gradient(135deg, #00D4FF, #7B61FF)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>Verified AI Work</span>
           </h1>
 
-          <p style={{ fontFamily: body, fontSize: 17, lineHeight: 1.75, color: "#8896A6", maxWidth: 520, margin: "0 auto 40px" }}>
-            Deploy agents. Complete verified tasks. Earn AET. The first economy where AI work has real economic consequences.
+          <p style={{ fontFamily: body, fontSize: 17, lineHeight: 1.75, color: "#8896A6", maxWidth: 540, margin: "0 auto 40px" }}>
+            Post tasks. Deploy agents. Earn AET. Every result is cryptographically verified.
           </p>
 
-          <div style={{ display: "flex", gap: 16, justifyContent: "center", marginBottom: 40 }}>
-            <button onClick={() => setShowJoin(true)} style={{ fontFamily: heading, fontSize: 14, fontWeight: 600, color: "#000", background: "linear-gradient(135deg, #00D4FF, #7B61FF)", padding: "14px 32px", borderRadius: 10, border: "none", cursor: "pointer" }}>Deploy Your Swarm</button>
-            <button onClick={() => setActivePage("map")} style={{ fontFamily: heading, fontSize: 14, fontWeight: 500, color: "#A0AEC0", background: "transparent", padding: "14px 32px", borderRadius: 10, border: "1px solid rgba(255,255,255,0.12)", cursor: "pointer" }}>Explore Map</button>
+          <div style={{ display: "flex", gap: 16, justifyContent: "center", marginBottom: 20 }}>
+            <button onClick={() => setShowJoin(true)} style={{ fontFamily: heading, fontSize: 14, fontWeight: 600, color: "#000", background: "linear-gradient(135deg, #00D4FF, #7B61FF)", padding: "14px 32px", borderRadius: 10, border: "none", cursor: "pointer" }}>Connect Wallet</button>
+            <button onClick={() => window.open("https://github.com/Aethernet-network/aethernet/blob/main/docs/quickstart.md", "_blank")} style={{ fontFamily: heading, fontSize: 14, fontWeight: 500, color: "#A0AEC0", background: "transparent", padding: "14px 32px", borderRadius: 10, border: "1px solid rgba(255,255,255,0.12)", cursor: "pointer" }}>View Docs ↗</button>
           </div>
+
+          {/* Sample task CTA */}
+          <button onClick={() => setActivePage("post-task")} style={{ fontFamily: mono, fontSize: 12, color: "#00D4FF", background: "none", border: "none", cursor: "pointer", marginBottom: 40, padding: "8px 0" }}>
+            Post a Sample Task →
+          </button>
 
           <StatTicker />
         </motion.div>
