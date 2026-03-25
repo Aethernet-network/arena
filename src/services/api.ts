@@ -62,12 +62,37 @@ export function getActiveAgentId(): string {
 
 async function mockDelay<T>(data: T): Promise<T> { return data; }
 
+function friendlyError(status: number, body: any): string {
+  const code = body?.code || "";
+  const raw = body?.error || body?.message || "";
+
+  if (status === 401) return "Please connect your wallet to continue.";
+  if (status === 403 && raw.includes("agent not registered")) return "Your wallet isn't registered yet. Try disconnecting and reconnecting.";
+  if (status === 403) return "You don't have permission for this action.";
+  if (status === 402) return "Insufficient balance. Request AET from the faucet or unstake some tokens.";
+  if (raw.includes("insufficient balance") || raw.includes("insufficient staked")) return "Insufficient balance for this action.";
+  if (status === 429) {
+    if (code === "faucet_cooldown") return "Faucet is on cooldown. Try again in 24 hours.";
+    if (code === "agent_rate_limited") return "Too many requests. Please wait a moment.";
+    return "Rate limit reached. Please try again shortly.";
+  }
+  if (code === "insufficient_category_security") return "Not enough validators for this assurance tier. Try posting without assurance.";
+  if (raw.includes("budget must be at least")) return "Minimum task budget is 0.1 AET.";
+  if (raw.includes("insufficient staked balance")) return "You don't have enough staked to unstake that amount.";
+  if (raw.includes("already registered") || raw.includes("already exists")) return "This agent is already registered.";
+  if (status === 400) return raw || "Invalid request. Please check your inputs.";
+  if (status === 404) return "Not found.";
+  if (status === 500) return "Server error. Please try again.";
+  if (status === 503) return "Service temporarily unavailable.";
+  return raw || `Something went wrong (${status}).`;
+}
+
 async function fetchJSON<T>(url: string, init?: RequestInit): Promise<T> {
   const res = await fetch(url, init);
   if (!res.ok) {
-    let msg = `HTTP ${res.status}`;
-    try { const body = await res.json(); msg = body.error || body.message || msg; } catch {}
-    throw new Error(msg);
+    let body: any = {};
+    try { body = await res.json(); } catch {}
+    throw new Error(friendlyError(res.status, body));
   }
   return res.json();
 }
