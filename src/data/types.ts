@@ -1,7 +1,7 @@
 // === Protocol-native types (aligned with AetherNet REST API at /v1/*) ===
 
 export interface AgentIdentity {
-  agent_id: string;
+  agent_id: string;          // Hex-encoded Ed25519 public key (64 hex chars)
   fingerprint_hash: string;
 }
 

@@ -62,7 +62,7 @@ function JoinModal({ onClose, onComplete }: { onClose: () => void; onComplete: (
     setDeploying(true);
     setDeployError("");
     try {
-      const agent = await api.registerAgent({ agent_id: name.toLowerCase().replace(/\s+/g, "-") });
+      const agent = await api.registerAgent({ capabilities: [] });
       if (stake > 0) await api.stakeTokens(agent.agent_id, stake * 1_000_000);
       setStep(3);
     } catch (e: any) {

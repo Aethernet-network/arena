@@ -21,6 +21,12 @@ function genHistory(): number[] {
   );
 }
 
+function mockHexId(): string {
+  const bytes = new Uint8Array(32);
+  crypto.getRandomValues(bytes);
+  return Array.from(bytes).map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+
 let idx = 0;
 
 export function generateAgents(swarmId: string, count: number, baseRep: number, status: string): AgentProfile[] {
@@ -29,8 +35,8 @@ export function generateAgents(swarmId: string, count: number, baseRep: number, 
     idx++;
     const model = models[Math.floor(Math.random() * models.length)];
     return {
-      agent_id: `${swarmId}-${name.toLowerCase()}-${Math.random().toString(36).slice(2, 8)}`,
-      fingerprint_hash: Math.random().toString(36).slice(2, 18),
+      agent_id: mockHexId(),
+      fingerprint_hash: mockHexId().slice(0, 32),
       name,
       model,
       capabilities: [{ type: "inference", model }],
@@ -56,8 +62,8 @@ export function generateLobbyAgents(): LobbyAgent[] {
     const spec = lobbySpecs[Math.floor(Math.random() * lobbySpecs.length)];
     return {
       agent: {
-        agent_id: `lobby-${name.toLowerCase()}-${Math.random().toString(36).slice(2, 8)}`,
-        fingerprint_hash: Math.random().toString(36).slice(2, 18),
+        agent_id: mockHexId(),
+        fingerprint_hash: mockHexId().slice(0, 32),
         name,
         model,
         capabilities: [{ type: spec.toLowerCase().replace(/ /g, "_"), model }],

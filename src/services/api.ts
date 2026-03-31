@@ -1,13 +1,13 @@
 /*
-ARENA ACTION                    → PROTOCOL API CALL(S)
+ARENA API SERVICE — AETHERNET-TX-V1 SIGNED
 ─────────────────────────────────────────────────────────────────
-All write ops include X-API-Key header for ALB node-agnostic auth.
-API key auto-generated via POST /v1/platform/keys on first use.
-Stored in localStorage for persistence across sessions.
+All write ops are signed with TX-V1 (7 HTTP headers, JCS + Ed25519).
+Read ops are plain fetch. Mock mode returns canned data for offline dev.
 */
 
 import type { Swarm, Alliance, LobbyAgent, TaskPool, FeedEvent, NetworkStats, AgentProfile } from "../data/types";
 import { mockSwarms, mockAlliances, mockLobbyAgents, mockTaskPools, mockFeed, getMockNetworkStats } from "../data/mockData";
+import { signRequestTxV1 } from "../wallet/txSigner";
 
 // === Mode constants ===
 const API_BASE = import.meta.env.VITE_AETHERNET_NODE || "mock";
@@ -17,20 +17,10 @@ const isLive = !isMock;
 
 export { isMock, isDemoMode, isLive, API_BASE };
 
-// === API Key + Agent ID persistence ===
+// === Agent ID persistence ===
 
-const ENV_API_KEY = import.meta.env.VITE_AETHERNET_API_KEY || "";
-const API_KEY_STORAGE = "aethernet_api_key";
 const AGENT_ID_STORAGE = "aethernet_agent_id";
 
-function getApiKey(): string | null {
-  if (ENV_API_KEY) return ENV_API_KEY;
-  try { return localStorage.getItem(API_KEY_STORAGE); } catch { return null; }
-}
-
-function storeApiKey(key: string): void {
-  try { localStorage.setItem(API_KEY_STORAGE, key); } catch {}
-}
 export function getStoredAgentId(): string | null {
   try { return localStorage.getItem(AGENT_ID_STORAGE); } catch { return null; }
 }
@@ -71,6 +61,7 @@ function friendlyError(status: number, body: any): string {
   if (status === 403) return "You don't have permission for this action.";
   if (status === 402) return "Insufficient balance. Request AET from the faucet or unstake some tokens.";
   if (raw.includes("insufficient balance") || raw.includes("insufficient staked")) return "Insufficient balance for this action.";
+  if (status === 409 && code === "DUPLICATE_TX") return "Duplicate transaction. Please try again.";
   if (status === 429) {
     if (code === "faucet_cooldown") return "Faucet is on cooldown. Try again in 24 hours.";
     if (code === "agent_rate_limited") return "Too many requests. Please wait a moment.";
@@ -80,6 +71,8 @@ function friendlyError(status: number, body: any): string {
   if (raw.includes("budget must be at least")) return "Minimum task budget is 0.1 AET.";
   if (raw.includes("insufficient staked balance")) return "You don't have enough staked to unstake that amount.";
   if (raw.includes("already registered") || raw.includes("already exists")) return "This agent is already registered.";
+  if (raw.includes("signature verification failed")) return "Signature verification failed. Try reconnecting your wallet.";
+  if (raw.includes("chain_id mismatch")) return "Chain ID mismatch. You may be connected to the wrong network.";
   if (status === 400) return raw || "Invalid request. Please check your inputs.";
   if (status === 404) return "Not found.";
   if (status === 500) return "Server error. Please try again.";
@@ -97,52 +90,32 @@ async function fetchJSON<T>(url: string, init?: RequestInit): Promise<T> {
   return res.json();
 }
 
-function authHeaders(): Record<string, string> {
-  const key = getApiKey();
-  const headers: Record<string, string> = { "Content-Type": "application/json" };
-  if (key) headers["X-API-Key"] = key;
-  return headers;
-}
-
-// Signed fetch — uses Ed25519 wallet signing when connected, falls back to API key
+/**
+ * Signed fetch for write operations — TX-V1 header signing.
+ * Body is sent unchanged; signing is done via 7 HTTP headers.
+ */
 async function signedFetch<T>(url: string, init: RequestInit & { method: string }): Promise<T> {
-  if (_activeSecretKey && _activeAgentId) {
-    const { signRequest } = await import("../wallet/signer");
-    const path = new URL(url).pathname;
-    const body = typeof init.body === "string" ? init.body : "";
-    const sigHeaders = await signRequest(init.method, path, body, _activeAgentId, _activeSecretKey);
-    const headers = { ...(init.headers as Record<string, string>), ...sigHeaders, "Content-Type": "application/json" };
-    return fetchJSON<T>(url, { ...init, headers });
+  if (!_activeSecretKey || !_activeAgentId) {
+    throw new Error("Please connect your wallet to continue.");
   }
-  // No wallet — fall back to API key auth
-  return fetchJSON<T>(url, { ...init, headers: authHeaders() });
+
+  const path = new URL(url).pathname;
+  const body = typeof init.body === "string" ? init.body : "";
+  const txHeaders = await signRequestTxV1(init.method, path, body, _activeAgentId, _activeSecretKey);
+
+  return fetchJSON<T>(url, {
+    ...init,
+    headers: {
+      "Content-Type": "application/json",
+      ...txHeaders,
+    },
+  });
 }
 
-// === API Key initialization ===
+// === Init (no-op now — API keys removed, TX-V1 replaces them) ===
 
-async function ensureApiKey(): Promise<string | null> {
-  if (isMock) return null;
-  if (ENV_API_KEY) return ENV_API_KEY;
-  const stored = getApiKey();
-  if (stored) return stored;
-
-  try {
-    const res = await fetchJSON<any>(`${API_BASE}/v1/platform/keys`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name: "arena-user", email: "arena@aethernet.network", tier: "free" }),
-    });
-    if (res.key) { storeApiKey(res.key); return res.key; }
-  } catch (err) {
-    console.warn("Failed to generate API key:", err);
-  }
-  return null;
-}
-
-let _apiKeyPromise: Promise<string | null> | null = null;
-export function initApi(): Promise<string | null> {
-  if (!_apiKeyPromise) _apiKeyPromise = ensureApiKey();
-  return _apiKeyPromise;
+export function initApi(): Promise<null> {
+  return Promise.resolve(null);
 }
 
 // === Protocol-native endpoints (REAL when connected, mock when offline) ===
@@ -181,7 +154,7 @@ async function getAgentStake(agentId: string) {
   return fetchJSON<any>(`${API_BASE}/v1/agents/${agentId}/stake`);
 }
 
-// === Authenticated write endpoints (wallet signing → API key fallback) ===
+// === Authenticated write endpoints (TX-V1 signed) ===
 
 async function stakeTokens(agentId: string, amount: number) {
   if (isMock) return mockDelay({ event_id: `stake-${Date.now()}` });
@@ -200,16 +173,17 @@ async function unstakeTokens(agentId: string, amount: number) {
 async function requestFaucet(agentId: string) {
   if (isMock) return mockDelay({ event_id: `faucet-${Date.now()}`, amount: 5000000000, agent_id: agentId, message: "mock faucet grant" });
   return signedFetch<any>(`${API_BASE}/v1/faucet`, {
-    method: "POST", body: JSON.stringify({ agent_id: agentId }),
+    method: "POST", body: JSON.stringify({}),
   });
 }
 
-async function registerAgent(params?: { agent_id?: string; public_key_b64?: string }) {
-  if (isMock) return mockDelay({ agent_id: `mock-agent-${Date.now()}`, fingerprint_hash: "mock-hash" });
-  // Registration uses API key auth (no wallet exists yet)
-  const res = await fetchJSON<any>(`${API_BASE}/v1/agents`, {
-    method: "POST", headers: authHeaders(),
-    body: JSON.stringify(params || {}),
+async function registerAgent(params?: { capabilities?: Array<{ type: string; model?: string }> }) {
+  if (isMock) return mockDelay({ agent_id: _activeAgentId || `mock-agent-${Date.now()}`, fingerprint_hash: "mock-hash" });
+  // Registration is self-authenticated: TX-V1 signature proves key ownership.
+  // The X-AetherNet-Actor header IS the agent_id (hex-encoded Ed25519 pubkey).
+  const res = await signedFetch<any>(`${API_BASE}/v1/agents`, {
+    method: "POST",
+    body: JSON.stringify({ capabilities: params?.capabilities || [] }),
   });
   if (res.agent_id) storeAgentId(res.agent_id);
   return res;
@@ -285,10 +259,10 @@ async function getNetworkStats(): Promise<NetworkStats> {
 // === Live Feed ===
 
 function formatEventDescription(e: any): string {
-  const short = (id: string) => id && id.length > 12 ? id.slice(0, 6) + "…" + id.slice(-4) : (id || "");
+  const short = (id: string) => id && id.length > 12 ? id.slice(0, 6) + "\u2026" + id.slice(-4) : (id || "");
   switch (e.type) {
     case "Transfer":
-      if (e.from && e.to && e.amount) return `${short(e.from)} → ${short(e.to)} ${(e.amount / 1_000_000).toFixed(0)} AET`;
+      if (e.from && e.to && e.amount) return `${short(e.from)} \u2192 ${short(e.to)} ${(e.amount / 1_000_000).toFixed(0)} AET`;
       return `Transfer by ${short(e.agent_id)}`;
     case "Registration": return `${short(e.agent_id)} joined the network`;
     case "GenesisFunding": return `${short(e.agent_id)} received genesis funding`;
@@ -326,7 +300,6 @@ async function getTaskPools(): Promise<TaskPool[]> {
   if (isMock) return mockDelay(mockTaskPools);
   try {
     const raw = await fetchJSON<any>(`${API_BASE}/v1/tasks?limit=50`);
-    console.log("raw tasks response:", raw);
 
     // Handle both array and {tasks: [...]} response shapes
     const tasks = Array.isArray(raw) ? raw : (raw.tasks || raw.data || []);
@@ -387,12 +360,12 @@ async function submitResult(taskId: string, result: Record<string, unknown>) {
 
 async function approveTask(taskId: string) {
   if (isMock) return mockDelay({ id: taskId, status: "completed" });
-  return signedFetch<any>(`${API_BASE}/v1/tasks/${taskId}/approve`, { method: "POST", body: "" });
+  return signedFetch<any>(`${API_BASE}/v1/tasks/${taskId}/approve`, { method: "POST", body: "{}" });
 }
 
 async function disputeTask(taskId: string) {
   if (isMock) return mockDelay({ id: taskId, status: "disputed" });
-  return signedFetch<any>(`${API_BASE}/v1/tasks/${taskId}/dispute`, { method: "POST", body: "" });
+  return signedFetch<any>(`${API_BASE}/v1/tasks/${taskId}/dispute`, { method: "POST", body: "{}" });
 }
 
 // Router & discovery (authenticated)

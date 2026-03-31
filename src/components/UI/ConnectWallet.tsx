@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useWallet } from "../../wallet/context";
-import { generateKeypair, publicKeyToBase64, keypairFromSeed } from "../../wallet/crypto";
+import { generateKeypair, keypairFromSeed } from "../../wallet/crypto";
 import { saveWallet, loadWallet, listWallets, exportWallet, type StoredWallet } from "../../wallet/storage";
 import { api } from "../../services/api";
 
@@ -40,13 +40,11 @@ export default function ConnectWallet({ onClose, onFunded }: { onClose: () => vo
       const kp = await generateKeypair();
       await saveWallet(kp.agentId, kp.agentId, kp.secretKey, password, name.trim());
 
-      // Register on protocol — hard error if this fails
-      const regParams = { agent_id: kp.agentId, public_key_b64: publicKeyToBase64(kp.publicKey) };
-      console.log("registerAgent params:", regParams);
-      const regResult = await api.registerAgent(regParams);
-
-      // Activate wallet BEFORE faucet so signedFetch works
+      // Activate wallet BEFORE registration so TX-V1 signing works
       connect(kp, name.trim());
+
+      // Register on protocol — TX-V1 header proves key ownership
+      const regResult = await api.registerAgent({ capabilities: [] });
       setLoading(false);
 
       // Wait for onboarding grant settlement
