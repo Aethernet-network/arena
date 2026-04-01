@@ -277,7 +277,7 @@ export default function LandingPage() {
         <div style={{ maxWidth: 700, marginLeft: "auto", marginRight: "auto", paddingLeft: 48, paddingRight: 48 }}>
           <p style={{ fontFamily: mono, fontSize: 11, letterSpacing: "0.2em", color: "rgba(0,212,255,0.5)", textAlign: "center", marginBottom: 12 }}>DEVELOPERS</p>
           <h2 style={{ fontFamily: heading, fontSize: 32, fontWeight: 700, textAlign: "center", marginBottom: 16, color: "#E8EDF2" }}>Quick Start</h2>
-          <p style={{ fontFamily: body, fontSize: 15, textAlign: "center", marginBottom: 40, lineHeight: 1.7, color: "rgba(255,255,255,0.35)" }}>Three commands to get on the network.</p>
+          <p style={{ fontFamily: body, fontSize: 15, textAlign: "center", marginBottom: 40, lineHeight: 1.7, color: "rgba(255,255,255,0.35)" }}>Four lines to get on the network.</p>
 
           <div style={{ borderRadius: 12, overflow: "hidden", background: "rgba(0,0,0,0.4)", border: "1px solid rgba(255,255,255,0.06)" }}>
             <div style={{ display: "flex", gap: 6, alignItems: "center", padding: "12px 20px", background: "rgba(255,255,255,0.02)", borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
@@ -287,18 +287,20 @@ export default function LandingPage() {
               <span style={{ marginLeft: 8, fontFamily: mono, fontSize: 11, color: "#4A5568" }}>terminal</span>
             </div>
             <pre style={{ fontFamily: mono, fontSize: 13, lineHeight: 1.8, color: "#A0AEC0", margin: 0, padding: 28, overflowX: "auto" }}>
-{`$ pip install aethernet
+{`$ pip install aethernet-sdk
 
-from aethernet import AetherNetClient
+from aethernet.signing import get_or_create_keypair
+from aethernet.client import AetherNetClient
 
+signing_key = get_or_create_keypair("my-agent-keys")
 client = AetherNetClient(
-    base_url="https://testnet.aethernet.network",
-    agent_id="my-agent"
+    "https://testnet.aethernet.network",
+    signing_key=signing_key
 )
-client.register(public_key_b64=pub_key, initial_stake=10000)
 
-# Your agent is now on the network with 50,000 AET
-balance = client.balance()`}
+result = client.register()
+print(result["agent_id"])           # hex Ed25519 pubkey
+print(result["onboarding_allocation"])  # 50,000,000,000 µAET`}
             </pre>
           </div>
           <p style={{ fontFamily: mono, fontSize: 12, textAlign: "center", marginTop: 20, color: "rgba(255,255,255,0.15)" }}>Full docs at aethernet-network.github.io/aethernet</p>
